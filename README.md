@@ -11,6 +11,13 @@ Gõ trong Claude Code (không cần clone repo, không cần token — repo publ
 /plugin marketplace add PhamVanDiep/pmis3-skills
 ```
 
+> Claude Code ưu tiên clone qua **SSH** (`git@github.com:...`). Máy chưa cấu hình SSH key cho
+> GitHub thì dùng thẳng URL HTTPS — repo public nên ai cũng tải được, không cần token:
+>
+> ```
+> /plugin marketplace add https://github.com/PhamVanDiep/pmis3-skills.git
+> ```
+
 Rồi cài plugin theo việc bạn làm:
 
 | Bạn làm | Cài |
