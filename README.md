@@ -45,10 +45,12 @@ Khi được báo (hoặc bất cứ lúc nào muốn):
 
 ```
 claude plugin marketplace update pmis3-skills
-claude plugin update pmis3-frontend      # và pmis3-backend / pmis3-workflow nếu có cài
+claude plugin update pmis3-frontend@pmis3-skills     # và pmis3-backend@… / pmis3-workflow@… nếu có cài
 ```
 
 Rồi khởi động lại Claude Code.
+
+> Hậu tố `@pmis3-skills` là **bắt buộc**. Thiếu nó thì lệnh báo `Plugin "pmis3-frontend" not found`.
 
 Mọi nhánh lỗi của hook đều thoát im lặng: không có `git`, mất mạng, chưa cài marketplace — hook
 không bao giờ làm phiền hay chặn phiên làm việc.

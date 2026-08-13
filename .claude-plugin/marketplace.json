@@ -27,7 +27,7 @@
       "name": "pmis3-workflow",
       "description": "Quy trình làm việc dùng chung cho cả FE lẫn BE: work item Azure DevOps on-prem, sinh tài liệu BA, dựng chức năng từ bản thiết kế Claude Design. Kèm cơ chế tự kiểm tra cập nhật bộ skill.",
       "source": "./plugins/pmis3-workflow",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "workflow",
       "keywords": ["azure-devops", "documentation", "pmis3", "workflow"]
     }

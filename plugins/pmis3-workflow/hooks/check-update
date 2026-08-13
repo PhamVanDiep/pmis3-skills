@@ -51,7 +51,7 @@ case "${behind}" in
     ''|0|*[!0-9]*) exit 0 ;;
 esac
 
-msg="Bo skill dung chung pmis3-skills co ban moi (${behind} commit). Bao nguoi dung chay: claude plugin marketplace update pmis3-skills, roi claude plugin update pmis3-frontend (va pmis3-backend, pmis3-workflow neu co cai), sau do khoi dong lai Claude Code de ap dung."
+msg="Bo skill dung chung pmis3-skills co ban moi (${behind} commit). Bao nguoi dung chay: claude plugin marketplace update pmis3-skills, roi claude plugin update <ten>@pmis3-skills cho tung plugin da cai (pmis3-frontend@pmis3-skills, pmis3-backend@pmis3-skills, pmis3-workflow@pmis3-skills). Hau to @pmis3-skills la BAT BUOC, thieu no lenh se bao Plugin not found. Sau do khoi dong lai Claude Code."
 
 printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "${msg}"
 
