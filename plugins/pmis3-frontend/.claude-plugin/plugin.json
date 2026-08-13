@@ -1,0 +1,9 @@
+{
+  "name": "pmis3-frontend",
+  "version": "1.0.0",
+  "description": "Quy ước frontend PMIS3: Angular 20 zoneless + signals, PrimeNG 20, TailwindCSS tw- prefix, bảng dữ liệu, form/dialog, routing, phân quyền, state. Dành cho mọi repo frontend PMIS3.",
+  "author": {
+    "name": "PMIS3 Team - EVNICT"
+  },
+  "keywords": ["angular", "primeng", "tailwind", "pmis3", "frontend"]
+}

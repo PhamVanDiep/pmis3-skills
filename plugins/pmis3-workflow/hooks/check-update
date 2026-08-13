@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# SessionStart hook cho pmis3-workflow.
+#
+# Claude Code KHONG tu cap nhat marketplace ben thu ba (da do: mot marketplace
+# github ngoai bi tut 18 commit sau 24 ngay). Hook nay kiem tra ho, gioi han
+# 1 lan / 12 gio, va CHI THONG BAO chu khong tu update — vi lenh
+# `claude plugin update` doi restart moi co hieu luc, tu chay giua phien chi
+# tao trang thai nua voi.
+#
+# Moi nhanh loi deu thoat im lang (exit 0): hook hong khong duoc lam phien lam viec.
+
+set -uo pipefail
+
+# Cho phep ghi de qua bien moi truong de kiem thu duoc (mac dinh la duong dan that).
+MARKET_DIR="${PMIS3_SKILLS_DIR:-${HOME}/.claude/plugins/marketplaces/pmis3-skills}"
+STAMP="${PMIS3_SKILLS_STAMP:-${HOME}/.claude/.pmis3-skills-update-check}"
+INTERVAL="${PMIS3_SKILLS_INTERVAL:-43200}"   # 12 gio
+
+command -v git >/dev/null 2>&1 || exit 0
+[ -d "${MARKET_DIR}/.git" ] || exit 0
+
+now=$(date +%s 2>/dev/null) || exit 0
+
+if [ -f "${STAMP}" ]; then
+    last=$(cat "${STAMP}" 2>/dev/null || printf '0')
+    case "${last}" in
+        ''|*[!0-9]*) last=0 ;;
+    esac
+    if [ $((now - last)) -lt ${INTERVAL} ]; then
+        exit 0
+    fi
+fi
+
+# Ghi moc thoi gian TRUOC khi fetch: mang hong cung khong lam moi phien deu cho.
+printf '%s' "${now}" > "${STAMP}" 2>/dev/null || true
+
+if command -v timeout >/dev/null 2>&1; then
+    timeout 15 git -C "${MARKET_DIR}" fetch --quiet origin >/dev/null 2>&1 || exit 0
+else
+    git -C "${MARKET_DIR}" fetch --quiet origin >/dev/null 2>&1 || exit 0
+fi
+
+local_sha=$(git -C "${MARKET_DIR}" rev-parse HEAD 2>/dev/null) || exit 0
+upstream=$(git -C "${MARKET_DIR}" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null) || exit 0
+remote_sha=$(git -C "${MARKET_DIR}" rev-parse "${upstream}" 2>/dev/null) || exit 0
+
+[ "${local_sha}" = "${remote_sha}" ] && exit 0
+
+behind=$(git -C "${MARKET_DIR}" rev-list --count "${local_sha}..${remote_sha}" 2>/dev/null || printf '')
+case "${behind}" in
+    ''|0|*[!0-9]*) exit 0 ;;
+esac
+
+msg="Bo skill dung chung pmis3-skills co ban moi (${behind} commit). Bao nguoi dung chay: claude plugin marketplace update pmis3-skills, roi claude plugin update pmis3-frontend (va pmis3-backend, pmis3-workflow neu co cai), sau do khoi dong lai Claude Code de ap dung."
+
+printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "${msg}"
+
+exit 0

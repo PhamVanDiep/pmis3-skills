@@ -1,0 +1,41 @@
+{
+  "collectionUrl": "https://devops.evn.com.vn/EVNCollection",
+  "apiVersion": "6.0",
+  "commentsApiVersion": "6.0-preview.3",
+  "connectionDataApiVersion": "6.0-preview",
+  "defaultProject": "PMIS3-NGUON",
+
+  "_note": "Project được tự nhận từ 'git remote origin' (đoạn đứng trước /_git/). defaultProject chỉ dùng khi không đọc được remote.",
+
+  "closedStates": ["Done", "Removed", "Closed"],
+
+  "_workflow": "Với mỗi type: chỉ tự đổi state khi state hiện tại nằm trong allowedFrom. Xong việc thì chuyển sang doneState. requirePush=true nghĩa là phải push hết commit mới được đổi.",
+
+  "workflow": {
+    "Bug": {
+      "allowedFrom": ["New", "In Progress", "Reopened"],
+      "doneState": "Committed",
+      "requirePush": true
+    },
+    "Task": {
+      "allowedFrom": ["To Do", "In Progress"],
+      "doneState": "Done",
+      "requirePush": false
+    },
+    "Ticket": {
+      "allowedFrom": ["New", "Ready", "Approved", "Designed", "In Progress", "Accepted"],
+      "doneState": "Done",
+      "requirePush": false
+    },
+    "Issue": {
+      "allowedFrom": ["New", "In Progress", "Reopened"],
+      "doneState": "Resolved",
+      "requirePush": false
+    },
+    "Product Backlog Item": {
+      "allowedFrom": ["New", "Approved", "In Progress", "Designed"],
+      "doneState": "Committed",
+      "requirePush": false
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "pmis3-skills",
+  "version": "1.0.0",
+  "description": "Bộ quy ước và skill dùng chung cho toàn bộ hệ sinh thái PMIS3 (PMIS3-NGUON, PMIS3-LUOI và các ứng dụng vệ tinh) — frontend Angular, backend Spring Boot, và quy trình làm việc.",
+  "owner": {
+    "name": "PMIS3 Team - EVNICT"
+  },
+  "plugins": [
+    {
+      "name": "pmis3-frontend",
+      "description": "Quy ước frontend PMIS3: Angular 20 zoneless + signals, PrimeNG 20, TailwindCSS tw- prefix, bảng dữ liệu, form/dialog, routing, phân quyền, state. Dành cho mọi repo frontend PMIS3.",
+      "source": "./plugins/pmis3-frontend",
+      "version": "1.0.0",
+      "category": "development",
+      "keywords": ["angular", "primeng", "tailwind", "pmis3", "frontend"]
+    },
+    {
+      "name": "pmis3-backend",
+      "description": "Quy ước backend PMIS3: Spring Boot + SQL Server, pmis3-security-starter, sinh CRUD, controller/service/data, phân quyền theo đơn vị, thông báo. Dành cho mọi microservice backend PMIS3.",
+      "source": "./plugins/pmis3-backend",
+      "version": "1.0.0",
+      "category": "development",
+      "keywords": ["spring-boot", "java", "sql-server", "pmis3", "backend"]
+    },
+    {
+      "name": "pmis3-workflow",
+      "description": "Quy trình làm việc dùng chung cho cả FE lẫn BE: work item Azure DevOps on-prem, sinh tài liệu BA, dựng chức năng từ bản thiết kế Claude Design. Kèm cơ chế tự kiểm tra cập nhật bộ skill.",
+      "source": "./plugins/pmis3-workflow",
+      "version": "1.0.0",
+      "category": "workflow",
+      "keywords": ["azure-devops", "documentation", "pmis3", "workflow"]
+    }
+  ]
+}

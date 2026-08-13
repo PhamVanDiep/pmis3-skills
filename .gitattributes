@@ -1,0 +1,3 @@
+# Toàn bộ repo là text. Ép LF để hook chạy được bằng bash trên mọi hệ điều hành
+# (CRLF sẽ làm hỏng shebang và phần bash của run-hook.cmd).
+* text=auto eol=lf
