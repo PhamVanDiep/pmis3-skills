@@ -3,6 +3,17 @@ name: crud
 description: 'Sinh trọn module CRUD backend PMIS3 cho một entity: Controller, Service, Repository, DTO, script SQL, hằng VFunction và spec cho frontend. Dùng khi người dùng yêu cầu viết CRUD cho entity kèm mã chức năng.'
 ---
 
+> **Tham số theo repo** — thay các placeholder dưới đây bằng giá trị của **repo hiện tại**,
+> đọc ở `CLAUDE.md` tại gốc repo (hoặc `application.yml` / `pom.xml`):
+>
+> | Placeholder | Ý nghĩa | Ví dụ |
+> |---|---|---|
+> | `{module}` | hậu tố module, cũng là tên thư mục con trong `entity/`, `dto/`, `repository/`, `service/` | `quantri`, `sxd`, `vattu`, `thietbi` |
+> | `{Module}` | dạng PascalCase của `{module}` | `Quantri`, `Sxd` |
+> | `{PORT}` | cổng service | `9000`, `8998` |
+>
+> KHÔNG hard-code giá trị của một module cụ thể — mỗi microservice một khác.
+
 # PMIS3 CRUD Generator Skill
 
 ## Invocation
@@ -13,7 +24,7 @@ Typical triggers: "viết CRUD cho entity X với mã chức năng Y", "generate
 ## Required Inputs
 
 Before starting, confirm you have:
-- **Entity class name** — e.g., `SDept`, `GVattuNhom` (must match the `.java` file in `entity/quantri/`)
+- **Entity class name** — e.g., `SDept`, `GVattuNhom` (must match the `.java` file in `entity/{module}/`)
 - **FUNCTIONID (mã chức năng)** — e.g., `02.0102`, `50.01.05`
 
 If either is missing, **ask the user before proceeding**.
@@ -26,7 +37,7 @@ Follow these steps **in order**. Complete each step fully before moving to the n
 
 ### Step 1 — Read the Entity
 
-1. Locate the entity file: `src/main/java/com/pmis3/nguon/entity/quantri/{EntityName}.java`
+1. Locate the entity file: `src/main/java/com/pmis3/nguon/entity/{module}/{EntityName}.java`
 2. Read it fully to extract:
    - Table name (`@Table(name=...)`)
    - Primary key field name + type (`@Id`)
@@ -56,7 +67,7 @@ From entity class name (e.g., `SDept`), derive:
 
 ### Step 3 — Create the DTO
 
-**Path**: `src/main/java/com/pmis3/nguon/dto/quantri/{EntityName}DTO.java`
+**Path**: `src/main/java/com/pmis3/nguon/dto/{module}/{EntityName}DTO.java`
 
 Rules:
 - Mirror all fields from the entity (use same field names, same types)
@@ -67,7 +78,7 @@ Rules:
 - If the DTO should expose the creator/modifier **display names**, extend `com.pmis.common.web.dto.AuditDTO` — the library's `DtoEnrichmentAdvice` fills in `userCrName` / `userMdfName` automatically (do not map them manually).
 
 ```java
-package com.pmis3.nguon.dto.quantri;
+package com.pmis3.nguon.dto.{module};
 
 import lombok.*;
 
@@ -84,7 +95,7 @@ public class {EntityName}DTO {
 If exposing creator/modifier display names:
 
 ```java
-package com.pmis3.nguon.dto.quantri;
+package com.pmis3.nguon.dto.{module};
 
 import com.pmis.common.web.dto.AuditDTO;
 import lombok.*;
@@ -100,14 +111,14 @@ public class {EntityName}DTO extends AuditDTO {
 
 ### Step 4 — Create the Repository
 
-**Path**: `src/main/java/com/pmis3/nguon/repository/quantri/{EntityName}Repository.java`
+**Path**: `src/main/java/com/pmis3/nguon/repository/{module}/{EntityName}Repository.java`
 
 Standard pattern with paginated keyword search:
 
 ```java
-package com.pmis3.nguon.repository.quantri;
+package com.pmis3.nguon.repository.{module};
 
-import com.pmis3.nguon.entity.quantri.{EntityName};
+import com.pmis3.nguon.entity.{module}.{EntityName};
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -132,17 +143,17 @@ public interface {EntityName}Repository extends JpaRepository<{EntityName}, {PkT
 
 ### Step 5 — Create the Service
 
-**Path**: `src/main/java/com/pmis3/nguon/service/quantri/{EntityName}Service.java`
+**Path**: `src/main/java/com/pmis3/nguon/service/{module}/{EntityName}Service.java`
 
 **Inject** `GrantedPermissionService` via the constructor (do NOT extend it — it now lives in the shared `pmis3-security-starter` library). Standard CRUD operations:
 
 ```java
-package com.pmis3.nguon.service.quantri;
+package com.pmis3.nguon.service.{module};
 
-import com.pmis3.nguon.dto.quantri.{EntityName}DTO;
-import com.pmis3.nguon.entity.quantri.{EntityName};
+import com.pmis3.nguon.dto.{module}.{EntityName}DTO;
+import com.pmis3.nguon.entity.{module}.{EntityName};
 import com.pmis.common.exception.BadRequestException;
-import com.pmis3.nguon.repository.quantri.{EntityName}Repository;
+import com.pmis3.nguon.repository.{module}.{EntityName}Repository;
 import com.pmis.common.security.service.GrantedPermissionService;
 import com.pmis.common.util.MapperUtil;
 import com.pmis.common.security.util.SessionUtil;
@@ -276,9 +287,9 @@ public class {EntityName}Service {
 ```java
 package com.pmis3.nguon.controller;
 
-import com.pmis3.nguon.dto.quantri.{EntityName}DTO;
+import com.pmis3.nguon.dto.{module}.{EntityName}DTO;
 import com.pmis.common.web.dto.response.ApiResponse;
-import com.pmis3.nguon.service.quantri.{EntityName}Service;
+import com.pmis3.nguon.service.{module}.{EntityName}Service;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -447,9 +458,9 @@ Follow the `pmis3-frontend-spec` skill format exactly (8 sections). Base all end
 ## Checklist Before Reporting Done
 
 - [ ] Entity file read and fields extracted
-- [ ] DTO created in `dto/quantri/`
-- [ ] Repository created in `repository/quantri/`
-- [ ] Service created in `service/quantri/` (injects `GrantedPermissionService` from `com.pmis.common.security.service`)
+- [ ] DTO created in `dto/{module}/`
+- [ ] Repository created in `repository/{module}/`
+- [ ] Service created in `service/{module}/` (injects `GrantedPermissionService` from `com.pmis.common.security.service`)
 - [ ] Controller created in `controller/` (`@RequestParam` only, `orgid` header on all endpoints)
 - [ ] SQL script created in `scripts/`
 - [ ] `VFunction.java` updated with new constant

@@ -1,6 +1,6 @@
 {
   "name": "pmis3-backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Quy ước backend PMIS3: Spring Boot + SQL Server, pmis3-security-starter, sinh CRUD, controller/service/data, phân quyền theo đơn vị, thông báo. Dành cho mọi microservice backend PMIS3.",
   "author": {
     "name": "PMIS3 Team - EVNICT"

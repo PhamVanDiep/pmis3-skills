@@ -3,11 +3,22 @@ name: architecture
 description: 'Kiến trúc backend PMIS3: cấu trúc package, quy ước đặt tên entity Q_* và S_*, khóa phức hợp, pattern audit, phân cấp đơn vị. Đọc trước khi thêm entity hoặc module backend mới.'
 ---
 
+> **Tham số theo repo** — thay các placeholder dưới đây bằng giá trị của **repo hiện tại**,
+> đọc ở `CLAUDE.md` tại gốc repo (hoặc `application.yml` / `pom.xml`):
+>
+> | Placeholder | Ý nghĩa | Ví dụ |
+> |---|---|---|
+> | `{module}` | hậu tố module, cũng là tên thư mục con trong `entity/`, `dto/`, `repository/`, `service/` | `quantri`, `sxd`, `vattu`, `thietbi` |
+> | `{Module}` | dạng PascalCase của `{module}` | `Quantri`, `Sxd` |
+> | `{PORT}` | cổng service | `9000`, `8998` |
+>
+> KHÔNG hard-code giá trị của một module cụ thể — mỗi microservice một khác.
+
 # PMIS3 Architecture
 
 ## Project Overview
 
-PMIS3 Backend (quantri) - Spring Boot 4.1.0, Java 17, SQL Server. Consumes the shared starter library `com.pmis:pmis3-security-starter` (root package `com.pmis.common.*`) which provides admin entities, permission checks, JWT security, and utils. Controllers, services, and repositories are implemented incrementally.
+PMIS3 Backend ({module}) - Spring Boot 4.1.0, Java 17, SQL Server. Consumes the shared starter library `com.pmis:pmis3-security-starter` (root package `com.pmis.common.*`) which provides admin entities, permission checks, JWT security, and utils. Controllers, services, and repositories are implemented incrementally.
 
 **Key Technologies**: Spring Boot 4.1.0, Java 17, SQL Server, Spring Security + JWT, Spring Data JPA (database-first), Lombok, ModelMapper, SpringDoc OpenAPI
 
@@ -15,7 +26,7 @@ PMIS3 Backend (quantri) - Spring Boot 4.1.0, Java 17, SQL Server. Consumes the s
 
 ```
 com.pmis3.nguon/                        # HOST service (business code only)
-├── Pmis3NguonBackendQuantriApplication.java   # @SpringBootApplication + combined scan
+├── Pmis3NguonBackend{Module}Application.java   # @SpringBootApplication + combined scan
 ├── entity/                             # HOST business entities (extend library AuditableEntity)
 ├── controller/                         # REST controllers
 ├── service/                            # Business logic services (inject GrantedPermissionService)

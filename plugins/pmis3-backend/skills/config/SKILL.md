@@ -3,6 +3,17 @@ name: config
 description: 'Cấu hình backend PMIS3: biến môi trường, dịch vụ Docker, Gotenberg, tích hợp EVNID.'
 ---
 
+> **Tham số theo repo** — thay các placeholder dưới đây bằng giá trị của **repo hiện tại**,
+> đọc ở `CLAUDE.md` tại gốc repo (hoặc `application.yml` / `pom.xml`):
+>
+> | Placeholder | Ý nghĩa | Ví dụ |
+> |---|---|---|
+> | `{module}` | hậu tố module, cũng là tên thư mục con trong `entity/`, `dto/`, `repository/`, `service/` | `quantri`, `sxd`, `vattu`, `thietbi` |
+> | `{Module}` | dạng PascalCase của `{module}` | `Quantri`, `Sxd` |
+> | `{PORT}` | cổng service | `9000`, `8998` |
+>
+> KHÔNG hard-code giá trị của một module cụ thể — mỗi microservice một khác.
+
 # PMIS3 Configuration & Environment
 
 ## Required Environment Variables
@@ -26,7 +37,7 @@ AES_PASSWORD=your_aes_password
 AES_SALT=your_aes_salt
 
 # Server (optional)
-SERVER_PORT=9000
+SERVER_PORT={PORT}
 CORS_ORIGINS=*
 
 # Features (optional)
@@ -71,8 +82,8 @@ Use Spring profiles: `--spring.profiles.active=dev`
 
 ## Swagger/OpenAPI Documentation
 
-- **Swagger UI**: http://localhost:9000/pmis3-nguon-quantri/v1/swagger-ui.html
-- **OpenAPI JSON**: http://localhost:9000/pmis3-nguon-quantri/v1/v3/api-docs
+- **Swagger UI**: http://localhost:{PORT}/pmis3-nguon-{module}/v1/swagger-ui.html
+- **OpenAPI JSON**: http://localhost:{PORT}/pmis3-nguon-{module}/v1/v3/api-docs
 
 ## External Integrations
 
@@ -99,4 +110,4 @@ For external authentication with EVNID:
 5. **Configure Spring Security**: JWT filters, authentication providers
 6. **Add tests**: Unit tests for services, integration tests for controllers
 7. **Document APIs**: Add Swagger annotations
-8. **Test with Swagger UI**: Verify endpoints at http://localhost:9000/pmis3-nguon-quantri/v1/swagger-ui.html
+8. **Test with Swagger UI**: Verify endpoints at http://localhost:{PORT}/pmis3-nguon-{module}/v1/swagger-ui.html

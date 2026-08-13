@@ -3,6 +3,17 @@ name: controller
 description: 'Viết controller backend PMIS3: bắt buộc dùng @RequestParam thay @PathVariable, header orgid, cấu trúc endpoint, khai báo Swagger.'
 ---
 
+> **Tham số theo repo** — thay các placeholder dưới đây bằng giá trị của **repo hiện tại**,
+> đọc ở `CLAUDE.md` tại gốc repo (hoặc `application.yml` / `pom.xml`):
+>
+> | Placeholder | Ý nghĩa | Ví dụ |
+> |---|---|---|
+> | `{module}` | hậu tố module, cũng là tên thư mục con trong `entity/`, `dto/`, `repository/`, `service/` | `quantri`, `sxd`, `vattu`, `thietbi` |
+> | `{Module}` | dạng PascalCase của `{module}` | `Quantri`, `Sxd` |
+> | `{PORT}` | cổng service | `9000`, `8998` |
+>
+> KHÔNG hard-code giá trị của một module cụ thể — mỗi microservice một khác.
+
 # PMIS3 Controller Patterns
 
 ## IMPORTANT RULES
@@ -96,8 +107,8 @@ When building a new CRUD module, **always generate a FE spec document** at `../p
 
 ## Base Configuration
 
-- **Server Port**: 9000 (configurable via `SERVER_PORT`)
-- **Context Path**: `/pmis3-nguon-quantri/v1`
+- **Server Port**: {PORT} (configurable via `SERVER_PORT`)
+- **Context Path**: `/pmis3-nguon-{module}/v1`
 - **Max File Upload**: 50MB
 
 ## Endpoint Authorization Pattern
@@ -113,7 +124,7 @@ Function-level + organization-level authorization runs **automatically** via the
 ## Expected Endpoint Structure
 
 ```
-/pmis3-nguon-quantri/v1/
+/pmis3-nguon-{module}/v1/
 ├── /auth           # Authentication (login, logout, refresh, TFA)
 ├── /users          # User management
 ├── /roles          # Role management
@@ -126,5 +137,5 @@ Function-level + organization-level authorization runs **automatically** via the
 
 ## Swagger/OpenAPI Documentation
 
-- **Swagger UI**: http://localhost:9000/pmis3-nguon-quantri/v1/swagger-ui.html
-- **OpenAPI JSON**: http://localhost:9000/pmis3-nguon-quantri/v1/v3/api-docs
+- **Swagger UI**: http://localhost:{PORT}/pmis3-nguon-{module}/v1/swagger-ui.html
+- **OpenAPI JSON**: http://localhost:{PORT}/pmis3-nguon-{module}/v1/v3/api-docs
