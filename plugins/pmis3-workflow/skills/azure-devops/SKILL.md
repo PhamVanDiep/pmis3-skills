@@ -28,8 +28,47 @@ Script: `azdo.ps1` â€” náº±m cÃ¹ng thÆ° má»¥c vá»›i SKILL.md 
 | `azdo.ps1 comment <id> "<text>" -Yes` | Thêm comment vào Discussion |
 | `azdo.ps1 state <id> "<state>" -Yes` | Đổi sang state chỉ định |
 | `azdo.ps1 finish <id> -Yes` | Đổi sang state "xong" theo quy ước, có kiểm tra guard |
+| `azdo.ps1 create <type> "<title>" -Yes` | Tạo work item mới |
+| `azdo.ps1 link <id> -Parent\|-Related\|-BlockedBy <ids> -Yes` | Nối quan hệ giữa các work item |
 
 Bỏ `-Yes` = chạy khô, chỉ in ra dự định. **Luôn chạy khô trước, cho người dùng xem, rồi mới chạy thật.**
+
+### Tạo work item
+
+```powershell
+# Mô tả dài thì để trong file Markdown, script tự chuyển sang HTML.
+.\azdo.ps1 create Task "T1 — Nghiên cứu X" -DescriptionFile .\t1.md -Tags "wayfinder:research" -Parent 122698 -Yes
+
+# Mô tả ngắn thì truyền thẳng.
+.\azdo.ps1 create Ticket "Tiêu đề" -Description "Một dòng" -Related 118858 -Yes
+```
+
+Cờ dùng được với `create`: `-Description`, `-DescriptionFile`, `-Tags`, `-AssignTo`, `-AreaPath`,
+`-IterationPath`, `-DescField`, `-Html`, `-Field`, `-Parent`, `-Related`, `-BlockedBy`.
+
+`-DescriptionFile` nhận Markdown và chuyển sang HTML: heading, bảng, danh sách, `**đậm**`,
+`` `code` ``, link, đường kẻ ngang. File `.html` hoặc cờ `-Html` thì giữ nguyên, không chuyển.
+
+**Field bắt buộc khác nhau theo type.** Thiếu thì API trả `TF401320: Rule Error for field X`.
+Dùng `-Field "TênField=Giá trị"` (lặp được) để bù. Đã biết ở `PMIS3-NGUON`:
+
+| Type | Field bắt buộc ngoài Title |
+|---|---|
+| `Task` | không có — dùng type này cho ticket con là gọn nhất |
+| `Ticket` | `Microsoft.VSTS.Common.Severity`, ví dụ `-Field "Microsoft.VSTS.Common.Severity=3 - Medium"` |
+| `Product Backlog Item` | `Priority`, `ValueArea`, và một field `Custom.*` — nhiều ràng buộc, tránh dùng |
+
+Tra field bắt buộc của một type:
+`{collection}/{project}/_apis/wit/workitemtypes/{type}/fields?api-version=6.0`, lọc `alwaysRequired`.
+
+### Nối quan hệ
+
+`-Parent`, `-Related`, `-BlockedBy` nhận nhiều ID cách nhau bằng dấu phẩy. `-BlockedBy` ánh xạ
+sang `System.LinkTypes.Dependency-Reverse` (Predecessor) — Azure DevOps tự sinh chiều ngược lại
+(Successor) ở work item kia.
+
+Tạo work item tham chiếu lẫn nhau thì phải **hai lượt**: `create` hết trước để có ID, rồi `link`
+để nối. Đây đúng là quy trình `create-then-wire` mà `/wayfinder` yêu cầu.
 
 Output là `Write-Output` nên **lọc được**. Danh sách dài thì lọc thay vì đọc hết:
 
@@ -88,10 +127,11 @@ Khai báo trong `azdo.config.json`. Chỉ tự đổi khi state **hiện tại**
 5. **Comment** — ghi lại đã sửa gì, ở đâu. Chạy khô cho người dùng xem trước.
 6. **Đổi state** — `finish <id>`. Chạy khô trước, `-Yes` sau khi người dùng đồng ý.
 
-## Bốn ràng buộc bắt buộc
+## Năm ràng buộc bắt buộc
 
-1. **Không ghi khi chưa được đồng ý.** Mọi `comment` / `state` / `finish -Yes` phải được
-   người dùng xác nhận ở lượt trước đó. Không tự resolve.
+1. **Không ghi khi chưa được đồng ý.** Mọi `comment` / `state` / `finish` / `create` / `link`
+   kèm `-Yes` phải được người dùng xác nhận ở lượt trước đó. Không tự resolve, không tự tạo
+   work item.
 2. **Exit 2 → hỏi, không đoán.** Script in sẵn bảng state kèm số thứ tự; đưa nguyên bảng
    đó cho người dùng chọn. Không tự suy diễn state nào "hợp lý".
 3. **Exit 3 → push, không lách.** Không dùng `state` để vượt qua guard push của Bug.
@@ -108,3 +148,10 @@ Khai báo trong `azdo.config.json`. Chỉ tự đổi khi state **hiện tại**
 - Body gửi lên Azure DevOps phải là **UTF-8 không BOM**, nếu không API từ chối JSON.
 - Comment ghi qua field `System.History` (`PATCH` với `application/json-patch+json`) —
   cách này chạy trên mọi phiên bản Azure DevOps Server.
+- Tạo work item: `POST {project}/_apis/wit/workitems/${type}`. Dấu `$` trước tên type là **bắt
+  buộc** trong URL — trong PowerShell phải nối chuỗi bằng nháy đơn, nếu không `$` bị hiểu là biến.
+- `Description` của Azure DevOps là **HTML**, không phải Markdown. Script có hàm
+  `ConvertTo-AdoHtml` chuyển tập con Markdown hay dùng. `HtmlEncode` biến tiếng Việt thành
+  numeric entity (`&#234;`) — vẫn hiển thị đúng, không cần xử lý thêm.
+- API **không** trả về `allowedValues` cho những field kiểu chuỗi tự do như `Severity`; muốn biết
+  giá trị hợp lệ thì thử hoặc xem trên web UI. `3 - Medium` chạy được với type `Ticket`.

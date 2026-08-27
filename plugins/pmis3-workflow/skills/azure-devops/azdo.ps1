@@ -23,11 +23,20 @@
     .\azdo.ps1 state 12345 "Committed" -Yes
     .\azdo.ps1 finish 12345            # chạy khô, chỉ in ra dự định
     .\azdo.ps1 finish 12345 -Yes       # thực thi
+
+    # Tạo work item. -DescriptionFile nhận file Markdown, tự chuyển sang HTML.
+    .\azdo.ps1 create Task "Tiêu đề" -DescriptionFile .\mo-ta.md -Tags "wayfinder:research" -Yes
+    .\azdo.ps1 create Ticket "Map" -Description "Mô tả ngắn" -Parent 118858 -Yes
+
+    # Nối quan hệ sau khi đã có ID (wayfinder cần 2 lượt: tạo trước, nối sau).
+    .\azdo.ps1 link 12345 -Parent 12300 -Yes
+    .\azdo.ps1 link 12345 -BlockedBy "12301,12302" -Yes
+    .\azdo.ps1 link 12345 -Related 118858 -Yes
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('whoami', 'mine', 'show', 'states', 'comment', 'state', 'finish')]
+    [ValidateSet('whoami', 'mine', 'show', 'states', 'comment', 'state', 'finish', 'create', 'update', 'link')]
     [string]$Command,
 
     [Parameter(Position = 1)]
@@ -37,6 +46,26 @@ param(
     [string]$Arg2,
 
     [string]$Project,
+
+    # --- dùng cho 'create' ---
+    [string]$Description,
+    [string]$DescriptionFile,
+    [string]$Tags,
+    [string]$AssignTo,
+    [string]$AreaPath,
+    [string]$IterationPath,
+    # Ghi mô tả vào field khác System.Description (Bug thường dùng ReproSteps).
+    [string]$DescField,
+    # Field bắt buộc riêng của từng type/process, dạng "TênField=Giá trị".
+    # VD: -Field "Microsoft.VSTS.Common.Severity=3 - Medium","Custom.Abc=X"
+    [string[]]$Field,
+    # Nội dung đã là HTML sẵn -> không chạy bộ chuyển Markdown.
+    [switch]$Html,
+
+    # --- dùng cho 'create' và 'link'; nhận nhiều ID cách nhau bằng dấu phẩy ---
+    [string]$Parent,
+    [string]$Related,
+    [string]$BlockedBy,
 
     [switch]$All,
 
@@ -121,9 +150,21 @@ function Invoke-Ado {
     }
 
     if ($code -notmatch '^2\d\d$') {
+        # Body lỗi không phải lúc nào cũng là JSON: 401/403 của IIS trả về HTML. Bọc try/catch,
+        # nếu không chính ConvertFrom-JsonSafe sẽ ném "Invalid JSON primitive" và che mất mã HTTP thật.
         $msg = $raw
-        $err = ConvertFrom-JsonSafe $raw
-        if ($err) { $msg = Get-Val $err 'message' $raw }
+        try {
+            $err = ConvertFrom-JsonSafe $raw
+            if ($err) { $msg = Get-Val $err 'message' $raw }
+        }
+        catch {
+            $msg = (ConvertFrom-Html $raw)
+        }
+        if ($msg.Length -gt 500) { $msg = $msg.Substring(0, 500) + ' […]' }
+        if ($code -eq '401') {
+            $msg = "Xác thực Windows thất bại (Negotiate). Kiểm tra vé Kerberos: chạy 'klist' để xem, " +
+            "đăng nhập lại máy nếu vé hết hạn. Chi tiết: $msg"
+        }
         throw "Azure DevOps trả về HTTP $code : $msg"
     }
     return $raw
@@ -144,6 +185,128 @@ function ConvertFrom-Html {
     $t = [regex]::Replace($t, "[ \t]+`n", "`n")
     $t = [regex]::Replace($t, "`n{3,}", "`n`n")
     return $t.Trim()
+}
+
+# Định dạng inline của Markdown -> HTML. Escape TRƯỚC rồi mới áp regex, để '<' trong
+# nội dung thành &lt; mà vẫn giữ nguyên dấu ` và * cho các bước sau nhận ra.
+function Format-AdoInline {
+    param([string]$S)
+    $t = [System.Net.WebUtility]::HtmlEncode($S)
+    $t = [regex]::Replace($t, '`([^`]+)`', '<code>$1</code>')
+    $t = [regex]::Replace($t, '\*\*([^*]+)\*\*', '<strong>$1</strong>')
+    $t = [regex]::Replace($t, '\[([^\]]+)\]\(([^)]+)\)', '<a href="$2">$1</a>')
+    return $t
+}
+
+# Markdown -> HTML, chỉ đủ tập con mà work item hay dùng: heading, bảng, danh sách,
+# đậm, code, link, đường kẻ ngang. Azure DevOps lưu Description dạng HTML.
+function ConvertTo-AdoHtml {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return '' }
+
+    $norm = $Text -replace "`r`n", "`n"
+    $norm = $norm -replace "`r", "`n"
+    $lines = $norm -split "`n"
+
+    $out = New-Object System.Collections.Generic.List[string]
+    $para = New-Object System.Collections.Generic.List[string]
+    $list = ''
+    $inTable = $false
+    $isHead = $false
+
+    foreach ($raw in $lines) {
+        $trim = $raw.Trim()
+
+        # ---- bảng: | a | b |
+        if ($trim -match '^\|.*\|$') {
+            if ($para.Count) { $out.Add('<p>' + (Format-AdoInline ($para -join ' ')) + '</p>'); $para.Clear() }
+            if ($list) { $out.Add("</$list>"); $list = '' }
+            if (-not $inTable) {
+                $out.Add('<table border="1" style="border-collapse:collapse">')
+                $inTable = $true; $isHead = $true
+            }
+            # dòng ngăn cách |---|---| thì bỏ qua, nhưng nó kết thúc phần header
+            if ($trim -match '^\|[\s:\-\|]+\|$') { $isHead = $false; continue }
+            $cells = $trim.Trim('|') -split '\|'
+            $tag = if ($isHead) { 'th' } else { 'td' }
+            $row = '<tr>'
+            foreach ($c in $cells) { $row += "<$tag>" + (Format-AdoInline $c.Trim()) + "</$tag>" }
+            $out.Add($row + '</tr>')
+            continue
+        }
+        if ($inTable) { $out.Add('</table>'); $inTable = $false }
+
+        # ---- dòng trống: đóng đoạn và danh sách
+        if ($trim -eq '') {
+            if ($para.Count) { $out.Add('<p>' + (Format-AdoInline ($para -join ' ')) + '</p>'); $para.Clear() }
+            if ($list) { $out.Add("</$list>"); $list = '' }
+            continue
+        }
+
+        # ---- đường kẻ ngang
+        if ($trim -match '^(---+|===+|\*\*\*+)$') {
+            if ($para.Count) { $out.Add('<p>' + (Format-AdoInline ($para -join ' ')) + '</p>'); $para.Clear() }
+            if ($list) { $out.Add("</$list>"); $list = '' }
+            $out.Add('<hr />')
+            continue
+        }
+
+        # ---- heading
+        if ($trim -match '^(#{1,6})\s+(.*)$') {
+            if ($para.Count) { $out.Add('<p>' + (Format-AdoInline ($para -join ' ')) + '</p>'); $para.Clear() }
+            if ($list) { $out.Add("</$list>"); $list = '' }
+            $lvl = $Matches[1].Length + 1
+            if ($lvl -gt 6) { $lvl = 6 }
+            $out.Add("<h$lvl>" + (Format-AdoInline $Matches[2]) + "</h$lvl>")
+            continue
+        }
+
+        # ---- trích dẫn
+        if ($trim -match '^>\s?(.*)$') {
+            if ($para.Count) { $out.Add('<p>' + (Format-AdoInline ($para -join ' ')) + '</p>'); $para.Clear() }
+            if ($list) { $out.Add("</$list>"); $list = '' }
+            $out.Add('<blockquote>' + (Format-AdoInline $Matches[1]) + '</blockquote>')
+            continue
+        }
+
+        # ---- danh sách không đánh số
+        if ($trim -match '^[-*+]\s+(.*)$') {
+            if ($para.Count) { $out.Add('<p>' + (Format-AdoInline ($para -join ' ')) + '</p>'); $para.Clear() }
+            if ($list -ne 'ul') {
+                if ($list) { $out.Add("</$list>") }
+                $out.Add('<ul>'); $list = 'ul'
+            }
+            $out.Add('<li>' + (Format-AdoInline $Matches[1]) + '</li>')
+            continue
+        }
+
+        # ---- danh sách đánh số
+        if ($trim -match '^\d+\.\s+(.*)$') {
+            if ($para.Count) { $out.Add('<p>' + (Format-AdoInline ($para -join ' ')) + '</p>'); $para.Clear() }
+            if ($list -ne 'ol') {
+                if ($list) { $out.Add("</$list>") }
+                $out.Add('<ol>'); $list = 'ol'
+            }
+            $out.Add('<li>' + (Format-AdoInline $Matches[1]) + '</li>')
+            continue
+        }
+
+        # ---- dòng nối tiếp của mục danh sách đang mở (Markdown thụt lề)
+        if ($list -and $raw -match '^\s{2,}\S') {
+            $out.Add(' ' + (Format-AdoInline $trim))
+            continue
+        }
+
+        # ---- văn xuôi: gom các dòng liền nhau thành một đoạn
+        if ($list) { $out.Add("</$list>"); $list = '' }
+        $para.Add($trim)
+    }
+
+    if ($para.Count) { $out.Add('<p>' + (Format-AdoInline ($para -join ' ')) + '</p>') }
+    if ($list) { $out.Add("</$list>") }
+    if ($inTable) { $out.Add('</table>') }
+
+    return ($out -join "`n")
 }
 
 function Format-AdoDate {
@@ -208,6 +371,9 @@ $cfg = Read-AdoConfig
 $collection = (Get-Val $cfg 'collectionUrl').TrimEnd('/')
 $apiVer = Get-Val $cfg 'apiVersion' '6.0'
 $repoProject = Resolve-AdoProject $cfg $Project
+# Project suy từ git remote, KHÔNG tính cờ -Project. Dùng để chặn ghi xuyên project
+# khi người dùng tự chỉ định -Project khác với repo đang mở.
+$gitProject = Resolve-AdoProject $cfg ''
 
 function Get-ProjectUrl {
     param([string]$Name)
@@ -238,6 +404,85 @@ function Set-WorkItemField {
     $url = "$collection/_apis/wit/workitems/$Id" + '?api-version=' + $apiVer
     return ConvertFrom-JsonSafe (Invoke-Ado -Url $url -Method 'PATCH' `
             -Body (ConvertTo-JsonSafe $patch) -ContentType 'application/json-patch+json')
+}
+
+# Tên quan hệ của Azure DevOps. Hierarchy-Reverse = "Parent" nhìn từ phía con;
+# Dependency-Reverse = "Predecessor", tức "tôi bị chặn bởi item kia".
+$RelMap = @{
+    Parent    = 'System.LinkTypes.Hierarchy-Reverse'
+    Child     = 'System.LinkTypes.Hierarchy-Forward'
+    Related   = 'System.LinkTypes.Related'
+    BlockedBy = 'System.LinkTypes.Dependency-Reverse'
+    Blocks    = 'System.LinkTypes.Dependency-Forward'
+}
+
+function Split-IdList {
+    param([string]$Value)
+    if ([string]::IsNullOrWhiteSpace($Value)) { return @() }
+    return @($Value -split '[,;\s]+' | Where-Object { $_ -match '^\d+$' })
+}
+
+# Gom các cờ -Parent / -Related / -BlockedBy thành danh sách quan hệ.
+function Get-RequestedRelations {
+    $rels = @()
+    foreach ($kind in @('Parent', 'Related', 'BlockedBy')) {
+        foreach ($id in (Split-IdList (Get-Variable -Name $kind -ValueOnly -ErrorAction SilentlyContinue))) {
+            $rels += [pscustomobject]@{
+                Kind = $kind
+                Id   = $id
+                Rel  = $RelMap[$kind]
+                Url  = "$collection/_apis/wit/workItems/$id"
+            }
+        }
+    }
+    return $rels
+}
+
+function New-WorkItem {
+    param(
+        [string]$ProjectName,
+        [string]$Type,
+        [System.Collections.IDictionary]$Fields,
+        $Relations = @()
+    )
+    $patch = @()
+    foreach ($k in $Fields.Keys) {
+        if ($null -eq $Fields[$k] -or $Fields[$k] -eq '') { continue }
+        $patch += @{ op = 'add'; path = "/fields/$k"; value = $Fields[$k] }
+    }
+    foreach ($r in $Relations) {
+        $patch += @{ op = 'add'; path = '/relations/-'; value = @{ rel = $r.Rel; url = $r.Url } }
+    }
+    # Đường dẫn tạo work item có ký tự '$' trước tên type -> nối chuỗi bằng nháy đơn
+    # để PowerShell không hiểu nhầm là biến.
+    $url = (Get-ProjectUrl $ProjectName) + '/_apis/wit/workitems/$' +
+    [uri]::EscapeDataString($Type) + "?api-version=$apiVer"
+    return ConvertFrom-JsonSafe (Invoke-Ado -Url $url -Method 'POST' `
+            -Body (ConvertTo-JsonSafe $patch) -ContentType 'application/json-patch+json')
+}
+
+function Add-WorkItemRelation {
+    param([string]$Id, [string]$Rel, [string]$TargetId)
+    $patch = @(@{
+            op    = 'add'
+            path  = '/relations/-'
+            value = @{ rel = $Rel; url = "$collection/_apis/wit/workItems/$TargetId" }
+        })
+    $url = "$collection/_apis/wit/workitems/$Id" + '?api-version=' + $apiVer
+    return ConvertFrom-JsonSafe (Invoke-Ado -Url $url -Method 'PATCH' `
+            -Body (ConvertTo-JsonSafe $patch) -ContentType 'application/json-patch+json')
+}
+
+# Lấy nội dung mô tả từ -Description hoặc -DescriptionFile, chuyển sang HTML.
+function Resolve-DescriptionHtml {
+    $text = $Description
+    if ($DescriptionFile) {
+        if (-not (Test-Path $DescriptionFile)) { throw "Không tìm thấy file mô tả: $DescriptionFile" }
+        $text = [System.IO.File]::ReadAllText($DescriptionFile, [System.Text.Encoding]::UTF8)
+    }
+    if ([string]::IsNullOrWhiteSpace($text)) { return '' }
+    if ($Html -or ($DescriptionFile -and $DescriptionFile -match '\.html?$')) { return $text }
+    return ConvertTo-AdoHtml $text
 }
 
 function Show-StateMenu {
@@ -422,6 +667,137 @@ switch ($Command) {
     'states' {
         if (-not $Arg1) { throw "Thiếu tên type. Ví dụ: .\azdo.ps1 states Bug -Project CSDLMT" }
         Show-StateMenu -ProjectName $repoProject -TypeName $Arg1
+    }
+
+    'create' {
+        if (-not $Arg1) { throw "Thiếu type. Ví dụ: .\azdo.ps1 create Task ""Tiêu đề""" }
+        if (-not $Arg2) { throw "Thiếu tiêu đề work item." }
+
+        if ($repoProject -ne $gitProject -and -not $CrossProject) {
+            Write-Warning "Sẽ tạo ở project '$repoProject', nhưng repo hiện tại thuộc '$gitProject'."
+            Write-Warning "DỪNG: không tạo work item sang project khác từ repo này."
+            Write-Warning "Mở repo thuộc project '$repoProject' rồi chạy lại. Nếu chắc chắn đúng thì thêm cờ -CrossProject."
+            exit 4
+        }
+
+        $valid = @((Get-TypeStates -ProjectName $repoProject -TypeName $Arg1))
+        if ($valid.Count -eq 0) { throw "Type '$Arg1' không tồn tại ở project '$repoProject'." }
+
+        $descHtml = Resolve-DescriptionHtml
+        $descFieldName = if ($DescField) { $DescField } else { 'System.Description' }
+        $rels = @(Get-RequestedRelations)
+
+        $fields = [ordered]@{ 'System.Title' = $Arg2 }
+        if ($descHtml) { $fields[$descFieldName] = $descHtml }
+        if ($Tags) { $fields['System.Tags'] = $Tags }
+        if ($AssignTo) { $fields['System.AssignedTo'] = $AssignTo }
+        if ($AreaPath) { $fields['System.AreaPath'] = $AreaPath }
+        if ($IterationPath) { $fields['System.IterationPath'] = $IterationPath }
+        foreach ($kv in $Field) {
+            if ($kv -notmatch '^([^=]+)=(.*)$') { throw "Cờ -Field phải có dạng 'TenField=Gia tri', nhận được: $kv" }
+            $fields[$Matches[1].Trim()] = $Matches[2]
+        }
+
+        Write-Output "Project : $repoProject"
+        Write-Output "Type    : $Arg1"
+        Write-Output "Title   : $Arg2"
+        if ($Tags) { Write-Output "Tags    : $Tags" }
+        if ($AssignTo) { Write-Output "Assign  : $AssignTo" }
+        foreach ($r in $rels) { Write-Output "Link    : $($r.Kind) -> #$($r.Id)" }
+        if ($descHtml) {
+            $plain = ConvertFrom-Html $descHtml
+            $preview = if ($plain.Length -gt 400) { $plain.Substring(0, 400) + ' […]' } else { $plain }
+            Write-Output "Mô tả   : $($descHtml.Length) ký tự HTML"
+            Write-Output ($preview -replace '(?m)^', '  | ')
+        }
+
+        if (-not $Yes) {
+            Write-Output ""
+            Write-Output "CHẠY KHÔ. Chưa tạo gì cả. Thêm cờ -Yes để thực thi."
+            break
+        }
+
+        $new = New-WorkItem -ProjectName $repoProject -Type $Arg1 -Fields $fields -Relations $rels
+        $newId = Get-Val $new 'id'
+        Write-Output ""
+        Write-Output "Đã tạo #$newId [$Arg1] — $Arg2"
+        Write-Output "$(Get-ProjectUrl $repoProject)/_workitems/edit/$newId"
+    }
+
+    'update' {
+        if (-not $Arg1) { throw "Thiếu ID work item. Ví dụ: .\azdo.ps1 update 122698 -DescriptionFile .\map.md" }
+
+        $wi = Get-WorkItem -Id $Arg1
+        $f = Get-Val $wi 'fields'
+        $itemProject = Get-Val $f 'System.TeamProject' $repoProject
+        Write-Output "#$Arg1 [$(Get-Val $f 'System.WorkItemType')] @ $itemProject — $(Get-Val $f 'System.Title')"
+        if (-not (Test-ProjectScope -ItemProject $itemProject -Id $Arg1 -IsWrite)) { exit 4 }
+
+        $descHtml = Resolve-DescriptionHtml
+        $descFieldName = if ($DescField) { $DescField } else { 'System.Description' }
+
+        $fields = [ordered]@{}
+        # Arg2 (nếu có) là tiêu đề mới.
+        if ($Arg2) { $fields['System.Title'] = $Arg2 }
+        if ($descHtml) { $fields[$descFieldName] = $descHtml }
+        if ($Tags) { $fields['System.Tags'] = $Tags }
+        if ($AssignTo) { $fields['System.AssignedTo'] = $AssignTo }
+        if ($AreaPath) { $fields['System.AreaPath'] = $AreaPath }
+        if ($IterationPath) { $fields['System.IterationPath'] = $IterationPath }
+        foreach ($kv in $Field) {
+            if ($kv -notmatch '^([^=]+)=(.*)$') { throw "Cờ -Field phải có dạng 'TenField=Gia tri', nhận được: $kv" }
+            $fields[$Matches[1].Trim()] = $Matches[2]
+        }
+        if ($fields.Count -eq 0) {
+            throw "Không có gì để sửa. Dùng -DescriptionFile / -Description / -Tags / -AssignTo / -Field, hoặc truyền tiêu đề mới ở vị trí thứ 2."
+        }
+
+        foreach ($k in $fields.Keys) {
+            $v = [string]$fields[$k]
+            $short = if ($v.Length -gt 90) { $v.Substring(0, 90) + ' […]' } else { $v }
+            Write-Output ("  {0} = {1}" -f $k, $short)
+        }
+
+        if (-not $Yes) {
+            Write-Output ""
+            Write-Output "CHẠY KHÔ. Thêm cờ -Yes để thực thi."
+            break
+        }
+
+        $patch = @()
+        foreach ($k in $fields.Keys) { $patch += @{ op = 'add'; path = "/fields/$k"; value = $fields[$k] } }
+        $url = "$collection/_apis/wit/workitems/$Arg1" + '?api-version=' + $apiVer
+        [void](ConvertFrom-JsonSafe (Invoke-Ado -Url $url -Method 'PATCH' `
+                    -Body (ConvertTo-JsonSafe $patch) -ContentType 'application/json-patch+json'))
+        Write-Output ""
+        Write-Output "Đã cập nhật $($fields.Count) field của #$Arg1."
+    }
+
+    'link' {
+        if (-not $Arg1) { throw "Thiếu ID work item nguồn." }
+        $rels = @(Get-RequestedRelations)
+        if ($rels.Count -eq 0) {
+            throw "Thiếu quan hệ. Dùng -Parent / -Related / -BlockedBy, ví dụ: .\azdo.ps1 link 12345 -BlockedBy ""12301,12302"""
+        }
+
+        $wi = Get-WorkItem -Id $Arg1
+        $f = Get-Val $wi 'fields'
+        $itemProject = Get-Val $f 'System.TeamProject' $repoProject
+        Write-Output "#$Arg1 [$(Get-Val $f 'System.WorkItemType')] @ $itemProject — $(Get-Val $f 'System.Title')"
+        if (-not (Test-ProjectScope -ItemProject $itemProject -Id $Arg1 -IsWrite)) { exit 4 }
+
+        foreach ($r in $rels) { Write-Output "  $($r.Kind) -> #$($r.Id)" }
+
+        if (-not $Yes) {
+            Write-Output ""
+            Write-Output "CHẠY KHÔ. Thêm cờ -Yes để thực thi."
+            break
+        }
+
+        foreach ($r in $rels) {
+            [void](Add-WorkItemRelation -Id $Arg1 -Rel $r.Rel -TargetId $r.Id)
+            Write-Output "Đã nối #$Arg1 --[$($r.Kind)]--> #$($r.Id)"
+        }
     }
 
     'comment' {
