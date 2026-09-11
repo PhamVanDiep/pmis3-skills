@@ -1,6 +1,6 @@
 ---
 name: styling
-description: 'Styling frontend PMIS3 bằng TailwindCSS: quy tắc prefix tw-, bảng màu, cỡ chữ và spacing toàn cục. Dùng khi chỉnh giao diện hoặc viết CSS.'
+description: 'Styling frontend PMIS3 bằng TailwindCSS: quy tắc prefix tw-, design token màu (primary + text token cho màu chữ form/table/hint), cỡ chữ và spacing toàn cục. Dùng khi chỉnh giao diện, viết CSS hoặc chọn màu chữ.'
 ---
 
 # Skill: Styling - TailwindCSS & PrimeNG
@@ -25,11 +25,69 @@ Các class khác (margin, flex, grid, colors...) dùng bình thường, KHÔNG t
 <div class="flex items-center gap-4 m-4 bg-primary-100">Content</div>
 ```
 
-## Primary Color System
+## Design token màu
+Mọi màu đều là token trong `@theme static` của `src/styles/styles.css` — **nguồn duy nhất**, hex chỉ
+xuất hiện ở đó. PrimeNG preset, AG Grid theme và SCSS component tham chiếu `var(--color-*)`.
+
+### Primary
 Primary: `#313193` (primary-800). Scale 50-950:
 ```html
 <div class="bg-primary-800 text-white">Content</div>
 <button class="border-primary-700 hover:bg-primary-600">Click</button>
+```
+
+### Text token (màu chữ)
+Ba bậc, chọn theo vai trò của chữ:
+
+| Token | Giá trị | Tailwind class | Dùng cho |
+|---|---|---|---|
+| `--color-text-strong` | `#000000` | `text-text-strong` | giá trị input/cell, label, header cột, option dropdown |
+| `--color-text-secondary` | `#6b7280` | `text-text-secondary` | hint dưới input, subtitle dòng 2 trong cell, cột phụ |
+| `--color-text-muted` | `#9ca3af` | `text-text-muted` | placeholder, icon gợi ý, dòng/ô disabled |
+
+Màu ngữ nghĩa vẫn dùng trực tiếp: `text-red-500` lỗi validate, `text-primary-*` link/nhấn, tag/badge.
+Màu chữ trung tính chỉ đi qua ba token trên — `text-gray-*`, `text-slate-*` và hex trong SCSS là
+sai chuẩn.
+
+```html
+<label class="text-sm font-semibold">Mã thiết bị</label>              <!-- label: mặc định đã strong -->
+<td>
+  <div>{{ row.ten }}</div>                                              <!-- giá trị: mặc định đã strong -->
+  <div class="text-xs text-text-secondary">{{ row.maSo }}</div>         <!-- subtitle -->
+</td>
+<small class="text-text-secondary">Tối đa 50 ký tự</small>              <!-- hint -->
+<span class="text-text-muted">Chưa có dữ liệu</span>                    <!-- trạng thái trống -->
+```
+
+Label, cell p-table/AG Grid, input và option dropdown **tự nhận** `strong` qua cấu hình global —
+không thêm class màu cho chúng. Cấu hình chuẩn (áp dụng y hệt cho mọi app PMIS3):
+
+```css
+/* src/styles/styles.css */
+@theme static {                /* static: phát sinh biến kể cả khi template không dùng, vì TS tham chiếu */
+  --color-text-strong: #000000;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+}
+label { color: var(--color-text-strong); }
+```
+
+```ts
+// app.config.ts — definePreset(Aura, { semantic: { ..., colorScheme: { light: {
+text: { color: 'var(--color-text-strong)', mutedColor: 'var(--color-text-secondary)' },
+// Aura map formField.color thẳng tới surface.700, không qua text.color → phải set riêng
+formField: { color: 'var(--color-text-strong)', placeholderColor: 'var(--color-text-muted)' },
+// }}}}); và providePrimeNG({ theme: { options: { darkModeSelector: false } } }) — app chỉ có light theme
+```
+
+```ts
+// shared/ag-grid/ag-grid-theme.ts
+themeAlpine.withParams({ foregroundColor: 'var(--color-text-strong)' })
+```
+
+```scss
+// SCSS component: tham chiếu token, không hex
+.pick-sub { color: var(--color-text-secondary); }
 ```
 
 ## Global Component Sizing
