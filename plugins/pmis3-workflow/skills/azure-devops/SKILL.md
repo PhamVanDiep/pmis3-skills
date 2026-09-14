@@ -8,15 +8,39 @@ description: 'Đọc bug/ticket/feature từ Azure DevOps Server on-prem của E
 Làm việc với work item trên `https://devops.evn.com.vn/EVNCollection` — đọc yêu cầu,
 implement trong repo, rồi cập nhật lại work item.
 
-## Xác thực
+## Xác thực — PAT trong file credentials
 
-Windows Integrated Auth qua `curl.exe --negotiate`. **Không có PAT, không có secret.**
-Script chạy bằng đúng quyền của tài khoản Windows đang đăng nhập → `@Me` trong truy vấn
-tự trỏ về người dùng hiện tại. Không cần cấu hình gì thêm.
+Script xác thực bằng **Personal Access Token (PAT)**, không dùng mật khẩu Windows. PAT chỉ cấp
+scope **Work Items (Read & Write)** nên dù lộ cũng không đụng được code, pipeline hay tài khoản
+domain. `@Me` trong truy vấn vẫn trỏ về chủ PAT.
+
+Thứ tự tìm PAT (dừng ở nơi đầu tiên có):
+
+| Thứ tự | Nơi | Dành cho |
+|---|---|---|
+| 1 | Biến môi trường `AZDO_PAT` | CI, hoặc phiên tạm |
+| 2 | `azdo.credentials.json` **cạnh `azdo.ps1`** — đã gitignore | Người làm việc trên checkout repo này |
+| 3 | `%USERPROFILE%\.claude\azdo.credentials.json` | Người cài plugin qua marketplace — thư mục cache plugin bị ghi đè mỗi lần `plugin update`, để PAT ở đây thì không mất |
+
+Nội dung file (copy từ `azdo.credentials.example.json`):
+
+```json
+{ "pat": "xxxxxxxxxxxxxxxx" }
+```
+
+**Chưa có PAT thì script dừng ngay với hướng dẫn tạo** — không có cơ chế fallback sang mật khẩu
+Windows. Khi người dùng gặp lỗi này, hướng dẫn họ:
+
+1. Mở `https://devops.evn.com.vn/EVNCollection/_usersSettings/tokens` → **New Token**.
+2. Scope: chỉ tick **Work Items → Read & Write**. Không chọn Full access.
+3. Lưu vào một trong hai file ở bảng trên. **Không** dán PAT vào chat, vào commit, hay vào
+   `azdo.config.json`.
+
+HTTP `401` = PAT sai, hết hạn, hoặc thiếu scope → tạo PAT mới, không thử sửa script.
 
 ## Lệnh
 
-Script: `azdo.ps1` â€” náº±m cÃ¹ng thÆ° má»¥c vá»›i SKILL.md nÃ y (PowerShell 5.1).
+Script: `azdo.ps1` — nằm cùng thư mục với SKILL.md này (PowerShell 5.1).
 
 | Lệnh | Việc |
 |---|---|
@@ -146,6 +170,8 @@ Khai báo trong `azdo.config.json`. Chỉ tự đổi khi state **hiện tại**
 - File `azdo.ps1` phải giữ **UTF-8 có BOM**, nếu không PowerShell 5.1 đọc sai tiếng Việt.
   Sửa file xong nhớ ghi lại kèm BOM.
 - Body gửi lên Azure DevOps phải là **UTF-8 không BOM**, nếu không API từ chối JSON.
+- PAT được đưa vào curl qua **file config tạm (`-K`)**, không qua tham số dòng lệnh, để không
+  lộ trong Task Manager / `Get-Process`. File này xóa ngay sau mỗi request.
 - Comment ghi qua field `System.History` (`PATCH` với `application/json-patch+json`) —
   cách này chạy trên mọi phiên bản Azure DevOps Server.
 - Tạo work item: `POST {project}/_apis/wit/workitems/${type}`. Dấu `$` trước tên type là **bắt

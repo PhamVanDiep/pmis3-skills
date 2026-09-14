@@ -4,8 +4,15 @@
     Helper Azure DevOps Server (on-prem) cho Claude Code.
 
 .DESCRIPTION
-    Xác thực bằng Windows Integrated Auth (Negotiate) qua curl.exe -> KHÔNG cần PAT,
-    không lưu secret. Chạy bằng đúng quyền của tài khoản Windows đang đăng nhập.
+    Xác thực bằng Personal Access Token (PAT) đọc từ file credentials, gửi qua
+    curl.exe dạng Basic auth. PAT chỉ cần scope "Work Items (Read & Write)" -> không
+    dùng mật khẩu Windows, không cấp quyền rộng hơn việc thao tác work item.
+
+    Thứ tự tìm PAT (dừng ở nơi đầu tiên có):
+      1. biến môi trường AZDO_PAT
+      2. azdo.credentials.json cạnh script này (đã gitignore)
+      3. %USERPROFILE%\.claude\azdo.credentials.json (không bị mất khi update plugin)
+    Nội dung file: { "pat": "xxxxxxxx" }
 
     Mọi thao tác GHI (comment / đổi state) đều đòi cờ -Yes.
 
@@ -117,6 +124,40 @@ function Read-AdoConfig {
     return ConvertFrom-JsonSafe ([System.IO.File]::ReadAllText($path))
 }
 
+function Get-CredentialPaths {
+    return @(
+        (Join-Path $PSScriptRoot 'azdo.credentials.json'),
+        (Join-Path $env:USERPROFILE '.claude\azdo.credentials.json')
+    )
+}
+
+function Read-AdoPat {
+    if ($env:AZDO_PAT) { return $env:AZDO_PAT.Trim() }
+    foreach ($path in Get-CredentialPaths) {
+        if (-not (Test-Path $path)) { continue }
+        try {
+            $cred = ConvertFrom-JsonSafe ([System.IO.File]::ReadAllText($path))
+        }
+        catch {
+            throw "File credentials không phải JSON hợp lệ: $path. Nội dung mong đợi: { `"pat`": `"...`" }"
+        }
+        $pat = [string](Get-Val $cred 'pat' '')
+        if ($pat.Trim()) { return $pat.Trim() }
+        throw "File credentials thiếu trường 'pat': $path"
+    }
+    $hint = (Get-CredentialPaths | ForEach-Object { "  - $_" }) -join "`n"
+    throw ("Chưa có PAT Azure DevOps. Tạo PAT (scope: Work Items - Read & Write) tại " +
+        "$((Get-Val (Read-AdoConfig) 'collectionUrl').TrimEnd('/'))/_usersSettings/tokens " +
+        "rồi lưu vào một trong các file sau (nội dung: { `"pat`": `"...`" }):`n$hint`n" +
+        "Hoặc đặt biến môi trường AZDO_PAT.")
+}
+
+# Header Basic auth cho PAT: user rỗng, password = PAT.
+function Get-AuthHeader {
+    $bytes = [System.Text.Encoding]::ASCII.GetBytes(':' + (Read-AdoPat))
+    return 'Authorization: Basic ' + [Convert]::ToBase64String($bytes)
+}
+
 function Invoke-Ado {
     param(
         [Parameter(Mandatory = $true)][string]$Url,
@@ -124,10 +165,16 @@ function Invoke-Ado {
         [string]$Body,
         [string]$ContentType = 'application/json'
     )
+    # Đọc PAT trước khi tạo file tạm: thiếu PAT thì ném lỗi ngay, không để lại rác.
+    $authHeader = Get-AuthHeader
     $outFile = [System.IO.Path]::GetTempFileName()
     $bodyFile = $null
+    # PAT đi qua file config của curl (-K) chứ không qua tham số dòng lệnh,
+    # để không lộ trong danh sách tiến trình (Get-Process / Task Manager).
+    $authFile = [System.IO.Path]::GetTempFileName()
+    [System.IO.File]::WriteAllText($authFile, "header = `"$authHeader`"`n", (New-Object System.Text.UTF8Encoding($false)))
     $curlArgs = @(
-        '-s', '--negotiate', '-u', ':',
+        '-s', '-K', $authFile,
         '-o', $outFile, '-w', '%{http_code}',
         '-X', $Method,
         '-H', 'Accept: application/json'
@@ -146,6 +193,7 @@ function Invoke-Ado {
     }
     finally {
         Remove-Item $outFile -Force -ErrorAction SilentlyContinue
+        Remove-Item $authFile -Force -ErrorAction SilentlyContinue
         if ($bodyFile) { Remove-Item $bodyFile -Force -ErrorAction SilentlyContinue }
     }
 
@@ -162,8 +210,8 @@ function Invoke-Ado {
         }
         if ($msg.Length -gt 500) { $msg = $msg.Substring(0, 500) + ' […]' }
         if ($code -eq '401') {
-            $msg = "Xác thực Windows thất bại (Negotiate). Kiểm tra vé Kerberos: chạy 'klist' để xem, " +
-            "đăng nhập lại máy nếu vé hết hạn. Chi tiết: $msg"
+            $msg = "PAT bị từ chối (sai, hết hạn, hoặc thiếu scope Work Items Read & Write). " +
+            "Tạo PAT mới rồi cập nhật file credentials. Chi tiết: $msg"
         }
         throw "Azure DevOps trả về HTTP $code : $msg"
     }

@@ -1,0 +1,3 @@
+# PAT Azure DevOps của từng người — KHÔNG bao giờ commit.
+# Mẫu để copy: plugins/pmis3-workflow/skills/azure-devops/azdo.credentials.example.json
+**/azdo.credentials.json
