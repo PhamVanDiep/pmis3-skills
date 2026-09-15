@@ -60,7 +60,8 @@ onSearch(event: Event) {
 
 Template:
 ```html
-<p-iconfield iconPosition="left" class="w-full md:w-96">
+<!-- w-72, KHÔNG w-full (xem ui-conventions: rule p-iconfield.w-full trong styles.css luôn thắng) -->
+<p-iconfield iconPosition="left" class="w-72 max-w-full">
   <p-inputicon styleClass="pi pi-search" />
   <input pInputText type="text" placeholder="Tìm kiếm..." (input)="onSearch($event)" />
 </p-iconfield>

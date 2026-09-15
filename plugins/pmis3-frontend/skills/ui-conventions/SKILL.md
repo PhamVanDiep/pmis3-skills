@@ -1,6 +1,6 @@
 ---
 name: ui-conventions
-description: 'Quy ước giao diện BẮT BUỘC của PMIS3: page wrapper tw-p-2 bg-white, KHÔNG dùng h-full vì gây thanh cuộn thừa, tiêu đề text-lg, định dạng ngày dd/MM/yyyy, màu active của sidebar. Đọc khi dựng trang mới hoặc chỉnh layout, tiêu đề, ngày tháng.'
+description: 'Quy ước giao diện BẮT BUỘC của PMIS3: page wrapper tw-p-2 bg-white, KHÔNG dùng h-full vì gây thanh cuộn thừa, KHÔNG có tiêu đề h1 trong trang (breadcrumb đã hiển thị tên trang), thanh tìm kiếm w-72 cùng hàng với nút hành động, định dạng ngày dd/MM/yyyy, màu active của sidebar. Đọc khi dựng trang mới hoặc chỉnh layout, toolbar, ngày tháng.'
 ---
 
 # UI Conventions
@@ -30,11 +30,28 @@ Các quy tắc giao diện bắt buộc áp dụng cho toàn bộ project.
   giãn ra và content-area cuộn tự nhiên.
 - Lưu ý cú pháp Tailwind: dấu cách trong `calc()` viết bằng `_` → `calc(100vh_-_var(--app-topbar-height))`.
 
-**Page title** — thẻ `<h1>` tiêu đề trang:
+**Page title — KHÔNG có.** Trang KHÔNG tự render `<h1>` tên màn hình. Tên trang do **breadcrumb** của
+`main-layout` hiển thị (lấy từ `data.breadcrumb` của route, mục cuối in đậm màu primary, thanh breadcrumb
+dính ngay dưới header). Khai báo `data: { breadcrumb: 'Tên màn hình' }` ở route là đủ.
+- Trang chi tiết (route con) cũng khai `breadcrumb` riêng — nút "Quay lại" giữ, tiêu đề bỏ.
+- Ngoại lệ: `PagePanelComponent` (overlay chi tiết full-page) có `[title]` riêng vì nó che cả breadcrumb.
+
+**Toolbar đầu trang** — tìm kiếm + nút hành động **cùng một hàng**, thay cho hàng tiêu đề cũ:
 ```html
-<h1 class="text-lg font-bold text-primary-800">Tên màn hình</h1>
+<div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+  <p-iconfield iconPosition="left" class="w-72 max-w-full">
+    <p-inputicon styleClass="pi pi-search" />
+    <input pInputText type="text" placeholder="Tìm kiếm..." (input)="onSearch($event)" />
+  </p-iconfield>
+  @if (canCreate()) {
+    <p-button label="Tạo mới" icon="pi pi-plus" (onClick)="openCreateDialog()" severity="primary" />
+  }
+</div>
 ```
-- Dùng `text-lg`, KHÔNG dùng `text-2xl`
+- Thanh tìm kiếm rộng `w-72` (18rem). **KHÔNG** đặt `w-full` lên `<p-iconfield>` kể cả kèm breakpoint
+  (`w-full md:w-96`): `styles.css` có rule `p-iconfield.w-full { width: 100% }` đặc hiệu hơn utility
+  responsive nên thanh luôn bị full chiều rộng.
+- Trang không có tìm kiếm (tabs, panel nhóm…): nút hành động căn phải `flex justify-end items-center mb-2`.
 
 ## Định dạng ngày tháng
 

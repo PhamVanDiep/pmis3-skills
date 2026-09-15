@@ -366,20 +366,16 @@ File: `src/app/pages/{module-path}/{feature}/{feature}.html`
 
 ```html
 <div class="tw-p-2 bg-white">
-  <!-- Header: title + nút Tạo mới (permission-gated) -->
-  <div class="flex justify-between items-center mb-2">
-    <h1 class="text-lg font-bold text-primary-800">{Tên màn hình}</h1>
-    @if (canCreate()) {
-      <p-button label="Tạo mới" icon="pi pi-plus" (onClick)="openCreateDialog()" severity="primary" />
-    }
-  </div>
-
-  <!-- Search bar -->
-  <div class="md:flex md:justify-between md:items-center gap-4 mb-4">
-    <p-iconfield iconPosition="left" class="w-full md:w-96">
+  <!-- Toolbar: tìm kiếm + nút Tạo mới (permission-gated) cùng hàng.
+       KHÔNG có <h1> tên màn hình — breadcrumb của main-layout đã hiển thị (data.breadcrumb ở route). -->
+  <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+    <p-iconfield iconPosition="left" class="w-72 max-w-full">
       <p-inputicon styleClass="pi pi-search" />
       <input pInputText type="text" placeholder="Tìm kiếm..." (input)="onSearch($event)" />
     </p-iconfield>
+    @if (canCreate()) {
+      <p-button label="Tạo mới" icon="pi pi-plus" (onClick)="openCreateDialog()" severity="primary" />
+    }
   </div>
 
   <!-- Data table -->
