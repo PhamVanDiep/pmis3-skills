@@ -9,7 +9,7 @@
 
   "closedStates": ["Done", "Removed", "Closed"],
 
-  "_workflow": "Với mỗi type: chỉ tự đổi state khi state hiện tại nằm trong allowedFrom. Xong việc thì chuyển sang doneState. requirePush=true nghĩa là phải push hết commit mới được đổi.",
+  "_workflow": "Với mỗi type: chỉ tự đổi state khi state hiện tại nằm trong allowedFrom. Xong việc thì chuyển sang doneState. requirePush=true nghĩa là phải push hết commit mới được đổi. Quy ước: Bug xong -> Committed (code đã push, chờ kiểm thử); Ticket / Product Backlog Item xong -> Done. Task cũng muốn Committed nhưng type Task của PMIS3-NGUON chỉ có To Do / In Progress / Done nên dùng Done.",
 
   "workflow": {
     "Bug": {
@@ -20,7 +20,7 @@
     "Task": {
       "allowedFrom": ["To Do", "In Progress"],
       "doneState": "Done",
-      "requirePush": false
+      "requirePush": true
     },
     "Ticket": {
       "allowedFrom": ["New", "Ready", "Approved", "Designed", "In Progress", "Accepted"],
@@ -33,8 +33,8 @@
       "requirePush": false
     },
     "Product Backlog Item": {
-      "allowedFrom": ["New", "Approved", "In Progress", "Designed"],
-      "doneState": "Committed",
+      "allowedFrom": ["New", "Approved", "In Progress", "Designed", "Committed"],
+      "doneState": "Done",
       "requirePush": false
     }
   }

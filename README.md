@@ -80,10 +80,11 @@ Command: `/fe-spec`.
 `architecture`, `auth`, `controller`, `service`, `data`, `notification`, `config`, `pitfalls`,
 `crud`, `add-api`, `frontend-spec`, `commands`.
 
-### `pmis3-workflow` — 5 skill
+### `pmis3-workflow` — 6 skill
 
-`azure-devops` (đọc/cập nhật work item Azure DevOps on-prem EVN bằng Windows auth, không cần PAT),
-`feature-doc`, `feature-doc-update`, `design-to-feature`, `design-to-feature-sxd`.
+`azure-devops` (đọc/cập nhật work item Azure DevOps on-prem EVN, xác thực bằng PAT scope Work Items),
+`ado-done` (chốt work item: Bug → Committed, Ticket/Item → Done hoặc state chỉ định, kèm comment tổng kết
+và bù field bắt buộc), `feature-doc`, `feature-doc-update`, `design-to-feature`, `design-to-feature-sxd`.
 
 ## Gọi skill
 

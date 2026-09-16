@@ -49,9 +49,13 @@ Script: `azdo.ps1` — nằm cùng thư mục với SKILL.md này (PowerShell 5.
 | `azdo.ps1 mine -All` | Work item gán cho tôi ở **mọi project** trong collection |
 | `azdo.ps1 show <id>` | Chi tiết: mô tả, repro steps, acceptance criteria, thảo luận, đính kèm |
 | `azdo.ps1 states <type>` | Liệt kê state hợp lệ của một type |
+| `azdo.ps1 required <type>` | Field luôn bắt buộc (alwaysRequired) của một type |
 | `azdo.ps1 comment <id> "<text>" -Yes` | Thêm comment vào Discussion |
 | `azdo.ps1 state <id> "<state>" -Yes` | Đổi sang state chỉ định |
 | `azdo.ps1 finish <id> -Yes` | Đổi sang state "xong" theo quy ước, có kiểm tra guard |
+
+`state` và `finish` nhận thêm `-Comment "<text>"` (ghi Discussion cùng lượt) và `-Field "Tên=Giá trị"`
+(bù field bắt buộc của bước chuyển) — chốt work item thì dùng skill `pmis3-workflow:ado-done`.
 | `azdo.ps1 create <type> "<title>" -Yes` | Tạo work item mới |
 | `azdo.ps1 link <id> -Parent\|-Related\|-BlockedBy <ids> -Yes` | Nối quan hệ giữa các work item |
 
@@ -128,10 +132,12 @@ Khai báo trong `azdo.config.json`. Chỉ tự đổi khi state **hiện tại**
 | Type | Tự xử lý khi đang ở | Xong → |
 |---|---|---|
 | Bug | New · In Progress · Reopened | **Committed** (phải push code trước) |
-| Task | To Do · In Progress | **Done** |
+| Task | To Do · In Progress | **Done** (type này không có Committed) |
 | Ticket | New · Ready · Approved · Designed · In Progress · Accepted | **Done** |
 | Issue | New · In Progress · Reopened | **Resolved** |
-| Product Backlog Item | New · Approved · In Progress · Designed | **Committed** |
+| Product Backlog Item | New · Approved · In Progress · Designed · Committed | **Done** |
+
+Ý nghĩa: Bug xong → **Committed** = code đã push, chờ kiểm thử; Ticket / Item xong → **Done**.
 
 `finish` tự kiểm tra và **thoát với mã lỗi** khi không được phép:
 
@@ -140,6 +146,7 @@ Khai báo trong `azdo.config.json`. Chỉ tự đổi khi state **hiện tại**
 | `2` | State hiện tại ngoài `allowedFrom`, hoặc type không có quy ước | Script đã in sẵn bảng state — **hỏi người dùng chọn**, rồi chạy `state <id> "<tên>" -Yes` |
 | `3` | Bug nhưng code chưa push hết | Push xong mới chạy lại. **Không** lách bằng `state` |
 | `4` | Item thuộc project khác với repo hiện tại | Mở đúng repo rồi chạy lại. **Không** tự thêm `-CrossProject` |
+| `5` | Bước chuyển state đòi thêm field (`TF401320: Rule Error for field X`) | Chạy lại kèm `-Field "X=<giá trị>"`; giá trị mang nghĩa nghiệp vụ thì **hỏi người dùng** |
 
 ## Quy trình
 
@@ -148,8 +155,9 @@ Khai báo trong `azdo.config.json`. Chỉ tự đổi khi state **hiện tại**
    **trước khi** viết code. Mô tả work item thường ngắn và thiếu ngữ cảnh.
 3. **Implement** — theo đúng rule của repo (`.claude/rules/`, `CLAUDE.md`, wiki).
 4. **Push** — nếu là Bug thì bắt buộc, vì `finish` sẽ chặn khi còn commit chưa push.
-5. **Comment** — ghi lại đã sửa gì, ở đâu. Chạy khô cho người dùng xem trước.
-6. **Đổi state** — `finish <id>`. Chạy khô trước, `-Yes` sau khi người dùng đồng ý.
+5. **Chốt** — theo skill `pmis3-workflow:ado-done`: `finish <id> -Comment "<tổng kết>"` (hoặc
+   `state <id> "<State>"` khi người dùng nêu state). Chạy khô trước, `-Yes` sau khi người dùng đồng ý;
+   comment và state ghi cùng một lượt.
 
 ## Năm ràng buộc bắt buộc
 

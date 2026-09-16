@@ -31,6 +31,11 @@
     .\azdo.ps1 finish 12345            # chạy khô, chỉ in ra dự định
     .\azdo.ps1 finish 12345 -Yes       # thực thi
 
+    # Đổi state kèm comment tổng kết và field bắt buộc của bước chuyển, trong MỘT lượt ghi.
+    .\azdo.ps1 finish 12345 -Comment "Đã sửa ở commit abc123 (dev)" -Yes
+    .\azdo.ps1 state 12345 "Done" -Field "Microsoft.VSTS.Common.ResolvedReason=Fixed" -Yes
+    .\azdo.ps1 required Bug            # field bắt buộc (alwaysRequired) của một type
+
     # Tạo work item. -DescriptionFile nhận file Markdown, tự chuyển sang HTML.
     .\azdo.ps1 create Task "Tiêu đề" -DescriptionFile .\mo-ta.md -Tags "wayfinder:research" -Yes
     .\azdo.ps1 create Ticket "Map" -Description "Mô tả ngắn" -Parent 118858 -Yes
@@ -43,7 +48,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('whoami', 'mine', 'show', 'states', 'comment', 'state', 'finish', 'create', 'update', 'link')]
+    [ValidateSet('whoami', 'mine', 'show', 'states', 'required', 'comment', 'state', 'finish', 'create', 'update', 'link')]
     [string]$Command,
 
     [Parameter(Position = 1)]
@@ -68,6 +73,10 @@ param(
     [string[]]$Field,
     # Nội dung đã là HTML sẵn -> không chạy bộ chuyển Markdown.
     [switch]$Html,
+
+    # --- dùng cho 'state' và 'finish' ---
+    # Comment ghi vào Discussion cùng lượt PATCH đổi state (System.History).
+    [string]$Comment,
 
     # --- dùng cho 'create' và 'link'; nhận nhiều ID cách nhau bằng dấu phẩy ---
     [string]$Parent,
@@ -454,6 +463,69 @@ function Set-WorkItemField {
             -Body (ConvertTo-JsonSafe $patch) -ContentType 'application/json-patch+json')
 }
 
+# Ghi nhiều field trong MỘT lượt PATCH — đổi state kèm comment và field bắt buộc của bước chuyển
+# phải đi cùng nhau, nếu không Azure DevOps từ chối state vì thiếu field (TF401320).
+function Set-WorkItemFields {
+    param([string]$Id, [System.Collections.Specialized.OrderedDictionary]$Fields)
+    $patch = @()
+    foreach ($k in $Fields.Keys) { $patch += @{ op = 'add'; path = "/fields/$k"; value = [string]$Fields[$k] } }
+    $url = "$collection/_apis/wit/workitems/$Id" + '?api-version=' + $apiVer
+    return ConvertFrom-JsonSafe (Invoke-Ado -Url $url -Method 'PATCH' `
+            -Body (ConvertTo-JsonSafe $patch) -ContentType 'application/json-patch+json')
+}
+
+# Field bắt buộc của một type (alwaysRequired). Field chỉ bắt buộc ở MỘT bước chuyển state
+# (rule theo state) API không liệt kê được — chỉ biết khi PATCH bị TF401320.
+function Get-RequiredFields {
+    param([string]$ProjectName, [string]$TypeName)
+    $url = (Get-ProjectUrl $ProjectName) +
+    "/_apis/wit/workitemtypes/$([uri]::EscapeDataString($TypeName))/fields?api-version=$apiVer"
+    $res = ConvertFrom-JsonSafe (Invoke-Ado -Url $url)
+    return @((Get-Val $res 'value' @()) | Where-Object { Get-Val $_ 'alwaysRequired' $false })
+}
+
+# Gom state đích + field bổ sung (-Field) + comment (-Comment) thành một bộ field để ghi cùng lượt.
+function Build-StateFields {
+    param([string]$TargetState)
+    $fields = [ordered]@{ 'System.State' = $TargetState }
+    foreach ($kv in $Field) {
+        if ($kv -notmatch '^([^=]+)=(.*)$') { throw "Cờ -Field phải có dạng 'TenField=Gia tri', nhận được: $kv" }
+        $fields[$Matches[1].Trim()] = $Matches[2]
+    }
+    if ($Comment) { $fields['System.History'] = $Comment }
+    return $fields
+}
+
+function Show-StateFields {
+    param([System.Collections.Specialized.OrderedDictionary]$Fields)
+    foreach ($k in $Fields.Keys) {
+        $v = [string]$Fields[$k]
+        $short = if ($v.Length -gt 90) { $v.Substring(0, 90) + ' […]' } else { $v }
+        Write-Output ("  {0} = {1}" -f $k, $short)
+    }
+}
+
+# Đổi state; nếu Azure DevOps đòi thêm field (TF401320: Rule Error for field X) thì in tên field
+# và thoát 5 để skill hỏi người dùng giá trị rồi chạy lại với -Field "X=...".
+function Invoke-StateChange {
+    param([string]$Id, [System.Collections.Specialized.OrderedDictionary]$Fields)
+    try {
+        [void](Set-WorkItemFields -Id $Id -Fields $Fields)
+    }
+    catch {
+        $msg = $_.Exception.Message
+        if ($msg -match 'TF401320[^:]*:\s*Rule Error for field\s+([^.\s]+)') {
+            $missing = $Matches[1]
+            Write-Output ""
+            Write-Output "DỪNG: chuyển sang '$($Fields['System.State'])' đòi field '$missing'."
+            Write-Output "Chạy lại kèm -Field ""$missing=<giá trị>"" (hỏi người dùng nếu không suy ra được)."
+            Write-Output "Chi tiết: $msg"
+            exit 5
+        }
+        throw
+    }
+}
+
 # Tên quan hệ của Azure DevOps. Hierarchy-Reverse = "Parent" nhìn từ phía con;
 # Dependency-Reverse = "Predecessor", tức "tôi bị chặn bởi item kia".
 $RelMap = @{
@@ -717,6 +789,18 @@ switch ($Command) {
         Show-StateMenu -ProjectName $repoProject -TypeName $Arg1
     }
 
+    'required' {
+        if (-not $Arg1) { throw "Thiếu tên type. Ví dụ: .\azdo.ps1 required Ticket" }
+        $req = Get-RequiredFields -ProjectName $repoProject -TypeName $Arg1
+        Write-Output "Field bắt buộc (alwaysRequired) của '$Arg1' (project $repoProject):"
+        if ($req.Count -eq 0) { Write-Output "  (không có ngoài Title)" }
+        foreach ($r in $req) {
+            Write-Output ("  {0,-45} {1}" -f (Get-Val $r 'referenceName'), (Get-Val $r 'name'))
+        }
+        Write-Output ""
+        Write-Output "Field chỉ bắt buộc ở một bước chuyển state không hiện ở đây — chỉ biết khi state/finish thoát 5."
+    }
+
     'create' {
         if (-not $Arg1) { throw "Thiếu type. Ví dụ: .\azdo.ps1 create Task ""Tiêu đề""" }
         if (-not $Arg2) { throw "Thiếu tiêu đề work item." }
@@ -883,12 +967,14 @@ switch ($Command) {
             Show-StateMenu -ProjectName $itemProject -TypeName $type -Current $cur
             exit 1
         }
+        $fields = Build-StateFields -TargetState $Arg2
         if (-not $Yes) {
             Write-Output "CHẠY KHÔ. #$Arg1 [$type] @ $itemProject : '$cur' -> '$Arg2'"
+            Show-StateFields -Fields $fields
             Write-Output "Thêm cờ -Yes để thực thi."
             break
         }
-        [void](Set-WorkItemField -Id $Arg1 -Field 'System.State' -Value $Arg2)
+        Invoke-StateChange -Id $Arg1 -Fields $fields
         Write-Output "#$Arg1 [$type] : '$cur' -> '$Arg2'. Xong."
     }
 
@@ -934,13 +1020,15 @@ switch ($Command) {
             Write-Output "Kiểm tra push: $($push.Reason)"
         }
 
+        $fields = Build-StateFields -TargetState $target
         if (-not $Yes) {
             Write-Output ""
             Write-Output "CHẠY KHÔ. Sẽ chuyển: '$cur' -> '$target'"
+            Show-StateFields -Fields $fields
             Write-Output "Thêm cờ -Yes để thực thi."
             break
         }
-        [void](Set-WorkItemField -Id $Arg1 -Field 'System.State' -Value $target)
+        Invoke-StateChange -Id $Arg1 -Fields $fields
         Write-Output ""
         Write-Output "#$Arg1 [$type] : '$cur' -> '$target'. Xong."
     }
