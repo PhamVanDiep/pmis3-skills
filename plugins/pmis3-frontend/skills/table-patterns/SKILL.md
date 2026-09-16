@@ -1,11 +1,11 @@
 ---
 name: table-patterns
-description: 'Quy tắc BẮT BUỘC cho p-table và AG Grid trong PMIS3: không tạo cột Thao tác riêng mà dùng hover pill, độ rộng cột action, paginatorDropdownAppendTo, căn phải và định dạng số phân tách hàng nghìn, theme AG Grid qua Theming API. Đọc khi tạo hoặc sửa bất kỳ bảng dữ liệu nào.'
+description: 'Quy tắc BẮT BUỘC cho p-table, p-treetable và AG Grid trong PMIS3: không tạo cột Thao tác riêng mà dùng hover pill, độ rộng cột action, paginatorDropdownAppendTo, căn phải và định dạng số phân tách hàng nghìn, theme AG Grid qua Theming API, colgroup cho p-treetable scrollable, bảng cuộn trong trang. Đọc khi tạo hoặc sửa bất kỳ bảng dữ liệu nào.'
 ---
 
 # Table Patterns
 
-Quy tắc bắt buộc cho p-table trong toàn bộ project.
+Quy tắc bắt buộc cho p-table / p-treetable trong toàn bộ project.
 
 ## Row Actions on Hover
 
@@ -103,6 +103,55 @@ thay vì lặp, và ô số liệu bấm-được để mở dialog chi tiết �
 
 Khi cần ô chọn từ danh sách rất lớn (không dùng `p-select`/`p-multiselect`), dùng
 `MaterialPickerDialogComponent` (lazy) — cũng mô tả trong **`shared-components.md`**.
+
+## p-treetable (cây trong bảng)
+
+`p-treetable` ở chế độ `[scrollable]` của PrimeNG 20 render **header và body thành 2 bảng tách rời**
+(`.p-treetable-scrollable-header-table` / `.p-treetable-scrollable-body table`). Đặt `style="width"` trên
+`<th>`/`<td>` KHÔNG đủ → tiêu đề lệch cột. Bắt buộc:
+
+```html
+<p-treetable [value]="nodes()" [scrollable]="true" scrollHeight="flex" styleClass="p-treetable-sm"
+  [tableStyle]="{ 'table-layout': 'fixed', 'width': '100%' }">
+  <ng-template pTemplate="colgroup">
+    <colgroup>
+      <col style="width: 170px" />
+      <col />                      <!-- cột co giãn -->
+      <col style="width: 200px" /> <!-- cột action, width theo bảng hover pill ở trên -->
+    </colgroup>
+  </ng-template>
+  <ng-template pTemplate="header"><tr><th>…</th></tr></ng-template>       <!-- th không đặt width -->
+  <ng-template pTemplate="body" let-rowNode let-row="rowData">
+    <tr [ttRow]="rowNode" class="group cursor-pointer">
+      <td><div class="flex items-center min-w-0"><p-treeTableToggler [rowNode]="rowNode" /> <span class="truncate">{{ row.name }}</span></div></td>
+    </tr>
+  </ng-template>
+</p-treetable>
+```
+
+- Body scrollable có `white-space: nowrap; overflow: hidden` → ô text dài thêm `class="truncate" [title]="…"`.
+- Dòng tổng cộng / chú thích đặt ở `pTemplate="caption"` (đầu bảng), không dùng `summary` (cuối bảng).
+- `styles.css` đã áp cùng padding/cỡ chữ và fix căn lề `th.text-*` cho `.p-treetable` như `.p-datatable`
+  → dùng `styleClass="p-treetable-sm"` (KHÔNG mượn `p-datatable-sm`).
+- Nút toggler là `.p-treetable-node-toggle-button` (không phải `.p-treetable-toggler`) khi cần override.
+
+## Bảng cuộn trong trang, không cuộn cả trang
+
+Trang danh sách muốn bảng tự cuộn bên trong (header dính, trang không có thanh cuộn) thì wrapper phải
+có **chiều cao cố định theo viewport** — `min-h-*` không đủ vì `scrollHeight="flex"` (`height: 100%`)
+cần cha có chiều cao xác định:
+
+```html
+<div class="tw-p-2 bg-white h-[calc(100vh_-_var(--app-topbar-height))] flex flex-col overflow-hidden">
+  <div class="… shrink-0">toolbar</div>
+  <div class="flex-1 min-h-0">
+    <p-table … [scrollable]="true" scrollHeight="flex" />   <!-- hoặc p-treetable -->
+  </div>
+</div>
+```
+
+`--app-topbar-height` (header + breadcrumb) do `MainLayout` khai báo. Vẫn KHÔNG dùng `h-full`
+(xem `ui-conventions`).
 
 ## AG Grid — bảng nhập liệu Excel-like (`ag-grid-angular`)
 
