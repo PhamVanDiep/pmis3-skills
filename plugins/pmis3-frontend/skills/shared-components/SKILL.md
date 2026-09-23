@@ -28,6 +28,7 @@ xử lý file, JWT, tọa độ, localStorage...), **BẮT BUỘC đọc `wiki/t
 | **AuditHistoryCardComponent** | `app-audit-history-card` | `[title]` (mặc định `'Lịch sử'`), `[data]` (model extends `AuditDTO`) | Card hiển thị audit: người tạo / thời điểm tạo / người sửa / thời điểm sửa |
 | **ExtAttrFormComponent** | `app-ext-attr-form` | `objtypeid`, `[objid]`, `[attrgroupid]`, `[readonly]`, `[columns]` + API `isValid()`/`save()`/`reload()`/`getValues()` | Form **thuộc tính mở rộng** động theo Loại thuộc tính × Kiểu dữ liệu |
 | **WordEditorComponent** | `app-word-editor` | `[(content)]`, `[(headerHtml)]`, `[(footerHtml)]`, `[fileName]`, `[canvasHeight]`, `[readOnly]`, `[showStatusBar]`, `(exported)` + API `getHtml()`/`setHtml()`/`exportPdf()` | Soạn thảo văn bản kiểu Word trên trang A4, **đầu/chân trang lặp mọi trang** + **xuất PDF** |
+| **ImageAttachmentComponent** | `app-image-attachment` | `objTypeId`, `[objId]`, `attachType`, `[maxFiles]`, `[readonly]`, `emptyText`, `unsavedText`, `limitText` | Khối **ảnh đính kèm** của một đối tượng: upload, kéo thả, xem phóng to, tải về, xóa. `maxFiles=1` → một ảnh lớn (mã QR) |
 
 ## Card "Lịch sử" (audit) — KHÔNG tự viết lại
 Mọi màn hình chi tiết cần hiển thị thông tin tạo/sửa → dùng **`AuditHistoryCardComponent`**, KHÔNG copy markup.
@@ -101,18 +102,38 @@ Cột số (tồn kho, số lượng...) nên là `<button>` mở dialog chi ti�
 nếu hàng có `(dblclick)`. Ví dụ: cột "Tồn kho" ở list mở `TonKhoDialogComponent`; số lượng trong
 "Tồn kho theo kho" mở chi tiết phân rã kho con/lô.
 
-## Quản lý hình ảnh qua File API
-- `objTypeId` = mã đối tượng (vd `'G_VATTU'`), `objId` = khóa bản ghi, `attachType` quy ước (vd `'AI'`).
-- Upload: `FileService.upload(...)`; preview ngay sau upload bằng `URL.createObjectURL(file)` (revoke khi gỡ).
-- Danh sách ảnh: ưu tiên backend trả kèm trong API detail; nếu cần riêng thì `ExampleFileService.getList`.
-- Preview ảnh server: `<img src>` = `FileService.getDownloadUrl(file.url)` (cùng origin, cookie auth, không CORS).
-  Đường dẫn file thường ở cột **`url`** (không phải `filePath`).
-- Xem fullscreen + zoom: `<p-image [preview]="true">`. Nút **Tải xuống** trong toolbar preview:
-  import **`GlobalImageOverrideDirective`** (`shared/directives/`) vào component (PrimeNG 20 không có slot,
-  mask append ra `body` nên directive lắng nghe `onShow` để chèn nút).
-- Kéo-thả: vùng chứa nhận `dragover`/`dragleave`/`drop`, lọc theo `IMAGE_EXTENSIONS`, dùng chung hàm upload.
+## Ảnh đính kèm — dùng `ImageAttachmentComponent`, KHÔNG tự dựng lại
+Mọi khối ảnh gắn với một bản ghi (ảnh thiết bị, ảnh vật tư, ảnh mã QR…) → dùng **`app-image-attachment`**.
+Component tự lo trọn vòng đời qua File API dùng chung: `GET /file/list` (liệt kê), `FileService.upload`,
+`deleteFile`, `triggerDownload`.
+
+```html
+<app-image-attachment [objTypeId]="'A'" [objId]="assetid()" attachType="QR" [maxFiles]="1"
+  [readonly]="readonly()" limitText="Mỗi thiết bị chỉ có một ảnh QR." />
+<app-image-attachment [objTypeId]="'A'" [objId]="assetid()" attachType="AI" [readonly]="readonly()" />
+```
+
+- `objId` rỗng (bản ghi chưa lưu) → hiện `unsavedText`, khóa tải lên. Backend (`validateObjAttach`)
+  vốn từ chối upload khi bản ghi chưa tồn tại.
+- `maxFiles` vượt → **từ chối cả lô** và báo `limitText` qua `ConfirmDialogService` (không tự gọi toast).
+- Nhận `IMAGE_EXTENSIONS` (`jpg, jpeg, png, bmp, webp, svg`). Chỉ chính người tải lên xóa được (`canDelete`).
+- Cần: đăng ký `file/list` GET (+ `file/uploadfile`, `file/download`, `file/deleteFile`) vào
+  `Q_FUNCTION_ENDPOINT` cho chức năng; cặp (`objTypeId`, `attachType`) có trong `F_FILE_OBJTYPE_ATTACH`.
+- Danh sách tệp **không phải ảnh** của một đối tượng → `FileService.list(objTypeId, objId, attachType)`
+  (trả `FFileItem[]` có `canDelete`), KHÔNG viết endpoint liệt kê riêng cho từng phân hệ.
+
+### Hiển thị ảnh từ server — bắt buộc bọc lại blob
+- Tải bằng `FileService.download(url)` rồi `URL.createObjectURL(toImageBlob(blob, fileType))`
+  (`shared/utils/image-blob.util`). Backend trả `octet-stream` cho svg/webp/bmp; không bọc thì **svg hiện ô trống**.
+- **SVG có thể chứa script** → CHỈ hiển thị qua `<img>`/`p-image`. KHÔNG iframe, KHÔNG mở tab mới.
+  Không gán `getDownloadUrl()` thẳng vào `<img src>` (svg không hiện).
+- Thu hồi object URL khi gỡ ảnh / hủy component.
+- Xem toàn màn hình: `<p-image [preview]="true">` + import **`GlobalImageOverrideDirective`** để có nút Tải xuống.
+- Vùng kéo thả: khi bản ghi đã lưu, **luôn `preventDefault` ở `dragover`/`drop` kể cả khi đã đủ ảnh** —
+  không chặn thì thả tệp vào là trình duyệt mở tệp và rời khỏi trang.
 
 ## Backend đi kèm (tham khảo nhanh)
+- Liệt kê tệp theo đối tượng: `GET /file/list?objTypeId&objId&attachType` của `pmis3-file-starter` (kiểm quyền đọc đơn vị). Cần kiểm sâu hơn (vd quyền khu vực) → khai bean `FileObjectReadGuard` (`supports(objTypeId)`, `checkRead(orgid, objId)`) trong service chủ quản.
 - Composite key (`@EmbeddedId`) → map thủ công trong service (không dựa MapperUtil cho id nhúng).
 - Entity thiếu `@Id` → native SQL qua `EntityManager`, không tạo repository/entity.
 - Mệnh đề `IN (...)` → chia lô ≤ **1000** (SQL Server tối đa 2100 tham số).
