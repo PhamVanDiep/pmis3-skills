@@ -29,7 +29,7 @@ Rồi cài plugin theo việc bạn làm:
 Khởi động lại Claude Code sau khi cài.
 
 > Không cài plugin không dùng tới: mô tả của **mọi** skill đều được nạp vào context ở mọi phiên,
-> nên dev backend cài thêm `pmis3-frontend` là trả giá context cho 17 skill Angular không bao giờ dùng.
+> nên dev backend cài thêm `pmis3-frontend` là trả giá context cho 18 skill Angular không bao giờ dùng.
 
 ## Cập nhật
 
@@ -57,7 +57,7 @@ không bao giờ làm phiền hay chặn phiên làm việc.
 
 ## Nội dung
 
-### `pmis3-frontend` — 17 skill + 1 command
+### `pmis3-frontend` — 18 skill + 1 command
 
 Quy ước **bắt buộc** (đọc trước khi viết code):
 
@@ -68,6 +68,7 @@ Quy ước **bắt buộc** (đọc trước khi viết code):
 | `ui-conventions` | page wrapper, không dùng `h-full`, tiêu đề, định dạng ngày, màu sidebar |
 | `table-patterns` | hover pill thay cột Thao tác, định dạng số, paginator, AG Grid |
 | `shared-components` | component/util dùng chung — ưu tiên tái dùng trước khi viết mới |
+| `testing` | unit test (Vitest) + e2e (Playwright): bảng kịch bản, tầng nào test gì, bộ khung, Definition of Done, kịch bản cho thiết bị / thí nghiệm / sự cố / SCBD / RCM / CBM |
 
 Theo chủ đề: `coding-standards`, `component-development`, `primeng-patterns`, `api-services`,
 `granted-catalog`, `data-table-patterns`, `forms-dialogs`, `routing`, `styling`,

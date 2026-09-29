@@ -493,6 +493,15 @@ Mở file routes (ví dụ `he-thong.routes.ts`), thêm entry mới:
 
 ---
 
+## Bước 10 — Viết test
+
+Làm theo skill `pmis3-frontend:testing`: lập bảng kịch bản từ SPEC, viết `{feature}.service.spec.ts`,
+tách logic nghiệp vụ (nếu có) vào `{feature}.logic.ts` kèm spec dạng bảng, rồi page object
+`e2e/pages/{module}/{feature}.page.ts` và `e2e/{module}/{feature}.spec.ts` cho các hành trình bắt buộc.
+Gắn nhãn `for`/`id` (hoặc `inputId`) cho ô nhập và `ariaLabel` cho nút chỉ có icon ngay ở Bước 7.
+
+---
+
 ## Checklist trước khi hoàn thành
 
 - [ ] Model extends `AuditDTO`, tất cả fields đúng type và optional/required theo SPEC
@@ -508,6 +517,7 @@ Mở file routes (ví dụ `he-thong.routes.ts`), thêm entry mới:
 - [ ] Tất cả `p-select`/`p-dropdown`/`p-multiselect` trong dialog có `appendTo="body"`
 - [ ] `[paginatorDropdownAppendTo]="'body'"` trên `p-table`
 - [ ] Route đã được đăng ký trong file routes
+- [ ] Test theo Definition of Done của skill `pmis3-frontend:testing`; `npm test` và `npm run e2e` xanh
 
 ---
 
