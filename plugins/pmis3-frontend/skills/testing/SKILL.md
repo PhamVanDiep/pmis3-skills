@@ -1,6 +1,6 @@
 ---
 name: testing
-description: 'Quy tắc BẮT BUỘC viết unit test (Vitest) và e2e (Playwright) cho frontend PMIS3: tầng nào test gì, bảng kịch bản, bộ khung src/testing + e2e/fixtures, testability của template, Definition of Done. Kèm danh mục kịch bản cho nghiệp vụ phức tạp: thiết bị, thí nghiệm điện, sự cố khiếm khuyết, sửa chữa bảo dưỡng, RCM, CBM. Đọc khi dựng/sửa chức năng, sửa bug, hoặc viết bất kỳ *.spec.ts nào.'
+description: 'Quy tắc BẮT BUỘC viết/sửa unit test (Vitest), smoke test và e2e (Playwright, backend giả + backend thật) cho frontend PMIS3 mỗi khi xây mới HOẶC hiệu chỉnh chức năng: tầng nào test gì, bảng kịch bản, bộ khung src/testing + e2e/fixtures, testability của template, Definition of Done. Kèm danh mục kịch bản cho nghiệp vụ phức tạp: thiết bị, thí nghiệm điện, sự cố khiếm khuyết, sửa chữa bảo dưỡng, RCM, CBM. Đọc khi dựng/sửa chức năng, sửa bug, hoặc viết bất kỳ *.spec.ts nào.'
 ---
 
 # Testing
@@ -8,17 +8,30 @@ description: 'Quy tắc BẮT BUỘC viết unit test (Vitest) và e2e (Playwrig
 Mỗi chức năng giao đi kèm test của nó — code và test là **một** thay đổi. Test là bản đặc tả chạy được:
 đọc tên test là biết chức năng làm gì, test đỏ là biết hành vi nào hỏng.
 
+> **BẮT BUỘC — xây mới HOẶC hiệu chỉnh chức năng:** viết/sửa đủ **unit test + smoke test + e2e test** và chạy
+> xanh trước khi báo xong. Sửa hành vi thì sửa luôn test cũ đang mô tả hành vi đó — không xóa, không `skip`
+> cho qua. Ràng buộc nghiệp vụ (bắt buộc nhập, không trùng…) chặn ở CẢ giao diện lẫn backend, mỗi phía một
+> test. Tầng nào không chạy được (backend tắt, thiếu tài khoản) thì báo rõ tầng đó CHƯA chạy — chưa phải xong.
+> Backend: skill `pmis3-backend:testing`.
+
 ## Stack
 
 | Tầng | Công cụ | Vị trí | Lệnh |
 |---|---|---|---|
 | Unit | Vitest (builder `@angular/build:unit-test`, browser mode Chrome headless) | `*.spec.ts` cạnh file nguồn | `npm test`, `npm run test:watch` |
-| E2E | Playwright, backend giả (`MockApi`) | `e2e/<module>/*.spec.ts` | `npm run e2e`, `npm run e2e:ui` |
-| Smoke | Playwright, backend THẬT, tag `@smoke` | `e2e/smoke/` | `E2E_BASE_URL=… E2E_USER=… E2E_PASSWORD=… npm run e2e` |
+| E2E (mock) | Playwright, backend giả (`MockApi`) — project `mock` | `e2e/<module>/*.spec.ts` | `npm run e2e:mock`, `npm run e2e:ui` |
+| E2E (live) | Playwright, backend THẬT, GHI dữ liệu, tự dọn — project `live` | `e2e/live/<module>.spec.ts` | `npm run e2e:live` |
+| Smoke | Playwright, backend THẬT, CHỈ ĐỌC, tag `@smoke` — project `smoke` | `e2e/smoke/<module>.spec.ts` | `npm run e2e:smoke` |
+
+`smoke` và `live` đăng nhập thật một lần (project `setup`, `e2e/live/login.setup.ts`) bằng tài khoản trong
+`e2e/.env.local` (gitignore; mẫu `e2e/.env.local.example`). Thiếu tài khoản thì hai project này tự bỏ qua.
+`npm run e2e` chạy cả ba. Chi tiết và bẫy khi chạy với backend thật: [`E2E.md`](E2E.md#backend-thật-smoke--live).
 
 Bộ khung dùng chung: `src/testing/` (unit) và `e2e/fixtures`, `e2e/pages`, `e2e/support` (e2e).
-Bản chuẩn nằm ở repo `pmis3-luoi-frontend-thietbi` — repo khác chưa có thì chép nguyên các thư mục đó
-kèm `vitest.config.ts`, `playwright.config.ts`, `src/test-setup.ts`, `scripts/test-unit.mjs`.
+Bản chuẩn: `pmis3-nguon-frontend` (đủ cả mock / smoke / live, mẫu module Thiết bị: `e2e/pages/thietbi`,
+`e2e/smoke/thiet-bi.spec.ts`, `e2e/live/thiet-bi.spec.ts`) và `pmis3-luoi-frontend-thietbi` (mock + smoke).
+Repo khác chưa có thì chép nguyên các thư mục đó kèm `vitest.config.ts`, `playwright.config.ts`,
+`src/test-setup.ts`, `scripts/test-unit.mjs`, `scripts/serve-e2e.mjs`.
 
 ## Quy trình khi dựng hoặc sửa một chức năng
 
@@ -33,9 +46,12 @@ kèm `vitest.config.ts`, `playwright.config.ts`, `src/test-setup.ts`, `scripts/t
 3. **Service spec** — endpoint, method, tên/giá trị param, body. Mẫu: [`UNIT.md`](UNIT.md#service).
 4. **Component spec** chỉ cho logic riêng của component (ẩn/hiện theo quyền × trạng thái, validate chéo
    field, tính toán hiển thị). Mẫu: [`UNIT.md`](UNIT.md#component).
-5. **E2E** — page object của màn + spec các hành trình trong bảng kịch bản. Mẫu: [`E2E.md`](E2E.md).
+5. **E2E + smoke** — page object của màn (`e2e/pages/<module>/`) + ba loại spec: hành trình với backend giả
+   (ca khó dựng trên dữ liệu thật: lỗi backend, thiếu quyền), smoke chỉ đọc, và vòng đời nghiệp vụ chính với
+   backend thật (`e2e/live/`). Mẫu: [`E2E.md`](E2E.md).
 6. **Sửa bug:** viết test tái hiện, chạy thấy **đỏ**, rồi mới sửa code cho xanh. Test ở lại vĩnh viễn.
-7. Chạy `npm test` và `npm run e2e`. *Xong khi:* cả hai xanh và Definition of Done bên dưới đủ dấu.
+7. Chạy `npm test`, `npm run e2e:mock`, `npm run e2e:smoke`, `npm run e2e:live` và báo kết quả THẬT (số test,
+   xanh/đỏ, tầng nào chưa chạy được). *Xong khi:* tất cả xanh và Definition of Done bên dưới đủ dấu.
 
 ## Tầng nào test gì
 
@@ -83,9 +99,12 @@ Test và trình đọc màn hình tìm phần tử theo cùng một cách, nên 
 - [ ] Logic nghiệp vụ nằm trong hàm thuần, có unit test dạng bảng phủ mọi biên
 - [ ] Service có spec cho mọi method mới/sửa
 - [ ] Mỗi màn mới có page object + e2e: luồng chính, validate, lỗi backend, ít nhất một ca thiếu quyền
+- [ ] Smoke chỉ đọc cho màn (`e2e/smoke/<module>.spec.ts`) và e2e vòng đời với backend thật (`e2e/live/`)
+- [ ] Hiệu chỉnh chức năng: test cũ của hành vi bị đổi đã sửa theo, test mới cho hành vi mới
+- [ ] Ràng buộc nghiệp vụ mới có test ở cả giao diện (nút khóa / dấu `*`) lẫn backend (400, `pmis3-backend:testing`)
 - [ ] Bug đã sửa có test tái hiện
 - [ ] Template đạt quy tắc Testability
-- [ ] `npm test` và `npm run e2e` xanh; màn mới đã thêm vào smoke (`e2e/smoke/`)
+- [ ] `npm test`, `npm run e2e:mock`, `npm run e2e:smoke`, `npm run e2e:live` xanh — kết quả ghi vào PR
 
 ## Tham chiếu
 

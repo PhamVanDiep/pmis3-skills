@@ -134,8 +134,19 @@ describe('SuCoDetailPage — nút theo trạng thái × quyền', () => {
 | `expect(x).withContext('lý do').toBe(y)` | `expect(x, 'lý do').toBe(y)` |
 | `toBeTrue()` / `toBeFalse()` | `toBe(true)` / `toBe(false)` |
 | `jasmine.objectContaining` | `expect.objectContaining` |
+| `spy.and.returnValues(a, b)` | `spy.mockReturnValueOnce(a).mockReturnValueOnce(b)` |
+| `spy.calls.reset()` / `.calls.count()` | `spy.mockClear()` / `spy.mock.calls.length` |
+| `toHaveBeenCalledOnceWith(…)` | `toHaveBeenCalledExactlyOnceWith(…)` |
+| `jasmine.clock().install()` / `.tick(n)` | `useFakeTimersExceptRaf()` / `vi.advanceTimersByTime(n)` |
+| `jasmine.clock().mockDate(d)` | `vi.setSystemTime(d)` |
+| `await expectAsync(p).toBeResolvedTo(v)` | `await expect(p).resolves.toEqual(v)` |
+| `NoopAnimationsModule` | bỏ — `src/test-setup.ts` đã tắt hiệu ứng CSS |
 
-Schematic chuyển tự động: `ng g @schematics/angular:refactor-jasmine-vitest` (xem lại thụt lề/nháy sau khi chạy).
+Schematic chuyển tự động: `ng g @schematics/angular:refactor-jasmine-vitest`. **Không dùng nguyên kết quả**:
+schematic (và mọi migration của `ng update`) in lại CẢ file — đổi thụt lề, nháy, gộp dòng; có prettier trong
+project thì nó còn format lại toàn file. Diff hàng nghìn dòng không review được. Cách làm đúng: codemod nhắm
+đúng đoạn API (giữ format gốc) rồi chạy prettier riêng cho file spec theo cấu hình của repo. Cũng đừng
+nhận nguyên các migration "tối ưu" tùy chọn (vd gỡ `CommonModule` hàng loạt) — tự sửa có chủ đích.
 
 ## Bẫy thường gặp
 
@@ -143,3 +154,21 @@ Schematic chuyển tự động: `ng g @schematics/angular:refactor-jasmine-vite
 - Thư viện Node-only (vd `sockjs-client`) cần alias sang bản trình duyệt trong `vitest.config.ts`.
 - Biến toàn cục app khai ở `index.html` phải khai lại trong `src/test-setup.ts`.
 - `HttpTestingController.verify()` trong `afterEach` của mọi spec có HTTP.
+- **Hiệu ứng PrimeNG 21** (`pMotion`): `onShow`/`onHide` của dialog, bộ nghe Esc… chỉ chạy khi hiệu ứng CSS
+  KẾT THÚC. `src/test-setup.ts` đặt mọi `animation/transition-duration: 0s` — thiếu nó thì `(onShow)="nap()"`
+  không bao giờ chạy và cả spec của dialog đỏ hàng loạt.
+- **Đồng hồ giả**: dùng `useFakeTimersExceptRaf()` (`@/testing`). `vi.useFakeTimers()` trơn giả cả
+  `requestAnimationFrame` — Angular zoneless lên lịch change detection bằng rAF nên `fixture.whenStable()` treo
+  tới hết giờ.
+- **Viewport**: Vitest browser mặc định 414px; test đo layout / `elementFromPoint` cần
+  `"browserViewport": "1280x800"` trong `angular.json → test.options` (điểm ngoài viewport trả `null`).
+- **`vi.spyOn` GỌI hàm thật** (Jasmine `spyOn` thì không). Muốn chặn thì thêm `.mockImplementation(() => undefined)`.
+  Vitest không tự gỡ spy giữa các test — `test-setup.ts` gọi `vi.restoreAllMocks()` sau mỗi test.
+- `toContain` trên mảng so `===` (Jasmine so sâu) — mảng object dùng `toContainEqual`.
+- File tiện ích chỉ dùng cho test KHÔNG đặt đuôi `.spec.ts` (Vitest báo "No test suite found") — để trong
+  `src/testing/` (đã loại khỏi `tsconfig.app.json`).
+- **PrimeNG 21 `Dialog.close()` tự ẩn hộp** khi Esc / ✕ / bấm nền (PrimeNG 20 chỉ phát `visibleChange`). Hộp
+  điều khiển một chiều `[visible]="hien()" (visibleChange)="$event ? null : dongLai()"` (đang ghi không cho
+  đóng, còn thay đổi thì hỏi) phải gắn directive giữ hành vi cũ (`appDialogDoChaQuyetDinh` ở
+  `pmis3-nguon-frontend`) — test Esc thật (`nhanEscThat()`) sẽ bắt lỗi này.
+- Spec theo prettier của repo (`npx prettier --write "src/**/*.spec.ts"`), viết xong thì format.

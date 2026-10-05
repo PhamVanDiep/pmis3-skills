@@ -7,12 +7,15 @@ Tham chiếu của skill [`testing`](SKILL.md). Mọi spec import `test`, `expec
 ```
 e2e/
 ├── fixtures/index.ts        # test.extend: api, shell + option quyền/đơn vị/đăng nhập
-├── support/                 # MockApi, seedSession
+├── support/                 # MockApi, seedSession, live-api (dọn dữ liệu backend thật, expectOk)
 ├── pages/                   # page object DÙNG CHUNG: app-shell, data-table, form-dialog
 │   └── <module>/<feature>.page.ts   # page object riêng của màn
 ├── data/<module>/<feature>.ts       # builder dữ liệu mẫu (kiểu DTO thật)
-├── <module>/<feature>.spec.ts       # hành trình của màn — vd e2e/thietbi/thiet-bi.spec.ts
-└── smoke/                           # backend thật, tag @smoke
+├── <module>/<feature>.spec.ts       # hành trình với backend giả (project mock)
+├── smoke/<module>.spec.ts           # backend thật, CHỈ ĐỌC, tag @smoke (project smoke)
+├── live/login.setup.ts              # đăng nhập thật một lần → e2e/.auth/live-user.json
+├── live/<module>.spec.ts            # backend thật, GHI dữ liệu + tự dọn (project live)
+└── .env.local                       # E2E_USER / E2E_PASSWORD (gitignore; mẫu .env.local.example)
 ```
 
 Tag mỗi `describe` theo module (`@thietbi`, `@thinghiem`, `@suco`, `@scbd`, `@rcm`, `@cbm`) để chạy
@@ -95,14 +98,47 @@ Chuyển trạng thái bị backend từ chối (`api.fail`) → trạng thái t
 - "Hôm nay": `await page.clock.setFixedTime(new Date('2026-09-29T08:00:00+07:00'))` trước `goto`.
 - Bảng lớn/AG Grid: test phân trang/cuộn server-side qua param request, không cuộn hết dữ liệu.
 
-## Smoke (backend thật)
+## Backend thật (smoke + live)
 
-- Chỉ đọc: mở màn, tải dữ liệu, không toast lỗi. Không thêm/sửa/xóa.
-- Mỗi module khi lên môi trường dev thêm một test vào `e2e/smoke/<module>.spec.ts`, tag `@smoke`.
-- Tài khoản qua biến môi trường `E2E_USER` / `E2E_PASSWORD`.
+- **Smoke** (`e2e/smoke/<module>.spec.ts`, `@smoke`): CHỈ ĐỌC — mở màn, nạp dữ liệu, duyệt/tìm, mở chi tiết và
+  từng tab, mở rồi đóng các hộp thoại; `afterEach` kiểm không có `.p-toast-message-error`. Không thêm/sửa/xóa.
+- **Live** (`e2e/live/<module>.spec.ts`): vòng đời nghiệp vụ chính trên dữ liệu thật — tạo → tìm → mở bằng link
+  → sửa → các thao tác nghiệp vụ → ràng buộc bị chặn → xóa. `test.describe.configure({ mode: 'serial' })`;
+  dữ liệu mang tiền tố `E2E-` + mã thời gian; `afterAll` LUÔN dọn (kể cả khi bước giữa đỏ) qua
+  `e2e/support/live-api.ts` (dùng phiên của trình duyệt).
+- Tài khoản ở `e2e/.env.local` (playwright.config tự `process.loadEnvFile`). Thiếu thì `smoke`/`live` tự bỏ qua
+  kèm cảnh báo — không được coi là đã chạy.
+- FE chạy ở `http://localhost:<cổng>` (KHÔNG `127.0.0.1`) cho smoke/live: backend đặt cookie phiên cho
+  `localhost`, khác site thì trình duyệt không gửi cookie. `scripts/serve-e2e.mjs` nghe cả `127.0.0.1` và `::1`.
+- Timeout: live 120 s, smoke 60 s mỗi test (backend thật + chỉ mục tìm kiếm cần thời gian).
+
+### Bẫy khi chạy với backend thật
+
+- **"Backend chạy trên máy" ≠ "CSDL trên máy"**: backend local thường nối DB DEV DÙNG CHUNG. Mọi bản ghi live tạo
+  ra nằm trên DB chung; xóa thường là XÓA MỀM — dòng vẫn còn và vẫn giữ ràng buộc unique. Hỏi trước khi chạy
+  live nếu chưa rõ DB nào.
+- **Chờ API, không chờ giao diện, khi giao diện có trạng thái tạm**: vd màn Thiết bị vẽ tạm bảng thiết bị rỗng
+  TRƯỚC khi danh sách khu vực về → phải `waitForResponse('/asset/sites')` rồi mới quyết định có chọn khu vực.
+- **Đếm dòng sau khi bảng nạp xong** (`.p-datatable-mask` biến mất + có dòng hoặc dòng "không có dữ liệu");
+  `locator.count()` không chờ.
+- **Giới hạn locator trong vùng chứa**: tên thiết bị xuất hiện cả ở breadcrumb, đường dẫn dưới từng dòng, tiêu
+  đề panel — `getByText(ten)` khớp nhiều phần tử. Lấy theo vùng (`crumbBar()`, `detailTitle()`).
+- `p-drawer` có role `complementary`, KHÔNG phải `dialog`; tìm theo `.p-drawer, .p-dialog` + tiêu đề.
+- **Chỉ mục tìm kiếm (Elasticsearch) trễ**: bản ghi vừa ghi có thể chưa tìm thấy, `childcount` của cha có thể
+  chưa cập nhật. Tìm thì `expect.poll` + tìm lại; kiểm quan hệ cha–con / bộ đếm bằng DUYỆT CÂY (SQL), không
+  bằng kết quả tìm kiếm.
+- Ô tìm kiếm có `distinctUntilChanged`: gõ lại đúng từ khóa cũ (hoặc xóa ô đã trống) KHÔNG gửi request — đừng
+  `waitForResponse` cho nó (treo tới hết giờ).
+- Kiểm response bằng `expectOk(res)` (`e2e/support/live-api.ts`) để lỗi in nguyên body backend. Gặp
+  `500 "Đã xảy ra lỗi hệ thống"` thì lấy stack trace từ console backend — đó là lỗi backend thật cần sửa
+  (vd ràng buộc CSDL chưa được kiểm ở service), không phải "test chập chờn".
+- Dữ liệu tạo trong test phải đúng ràng buộc nghiệp vụ hiện hành (vd mã thiết bị bắt buộc khi thêm mới) —
+  ràng buộc đổi thì sửa test live theo.
 
 ## Chạy & debug
 
-- `npm run e2e` tự bật `ng serve` ở cổng 4300 (không đụng dev server 4200).
+- `npm run e2e` build bản development rồi phục vụ bản tĩnh ở cổng 4300 (`scripts/serve-e2e.mjs`, không dùng
+  `ng serve` vì Vite reload giữa chừng). `E2E_SKIP_BUILD=1` dùng lại bản build cũ khi chỉ sửa spec.
+- `npm run e2e:mock` / `e2e:smoke` / `e2e:live` chạy riêng từng project. `E2E_SITE=<mã>` chọn khu vực.
 - `npm run e2e:ui` — chạy từng bước, xem DOM/request. `npm run e2e:report` — trace của test đỏ.
 - Trình duyệt mặc định là Chrome đã cài (`PW_CHANNEL`).

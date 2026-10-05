@@ -68,7 +68,7 @@ Quy ước **bắt buộc** (đọc trước khi viết code):
 | `ui-conventions` | page wrapper, không dùng `h-full`, tiêu đề, định dạng ngày, màu sidebar |
 | `table-patterns` | hover pill thay cột Thao tác, định dạng số, paginator, AG Grid |
 | `shared-components` | component/util dùng chung — ưu tiên tái dùng trước khi viết mới |
-| `testing` | unit test (Vitest) + e2e (Playwright): bảng kịch bản, tầng nào test gì, bộ khung, Definition of Done, kịch bản cho thiết bị / thí nghiệm / sự cố / SCBD / RCM / CBM |
+| `testing` | BẮT BUỘC khi xây mới/hiệu chỉnh chức năng: unit test (Vitest) + smoke + e2e (Playwright, backend giả và backend thật): bảng kịch bản, tầng nào test gì, bộ khung, Definition of Done, kịch bản cho thiết bị / thí nghiệm / sự cố / SCBD / RCM / CBM |
 
 Theo chủ đề: `coding-standards`, `component-development`, `primeng-patterns`, `api-services`,
 `granted-catalog`, `data-table-patterns`, `forms-dialogs`, `routing`, `styling`,
@@ -76,10 +76,11 @@ Theo chủ đề: `coding-standards`, `component-development`, `primeng-patterns
 
 Command: `/fe-spec`.
 
-### `pmis3-backend` — 12 skill
+### `pmis3-backend` — 13 skill
 
 `architecture`, `auth`, `controller`, `service`, `data`, `notification`, `config`, `pitfalls`,
-`crud`, `add-api`, `frontend-spec`, `commands`.
+`crud`, `add-api`, `frontend-spec`, `commands`, `testing` (BẮT BUỘC khi xây mới/hiệu chỉnh: unit test
+JUnit + Mockito, ràng buộc trả 400 thay vì 500, Definition of Done).
 
 ### `pmis3-workflow` — 6 skill
 

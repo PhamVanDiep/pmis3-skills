@@ -1,6 +1,6 @@
 ---
 name: pitfalls
-description: '10 lỗi hay mắc khi làm backend PMIS3 và cách tránh. Đọc khi debug hoặc review code backend.'
+description: 'Các lỗi hay mắc khi làm backend PMIS3 và cách tránh (DDL, audit, soft delete, unique index trên SQL Server, kiểm ràng buộc, DB dùng chung, debug lỗi 500). Đọc khi debug hoặc review code backend.'
 ---
 
 # PMIS3 Common Pitfalls to Avoid
@@ -30,3 +30,28 @@ description: '10 lỗi hay mắc khi làm backend PMIS3 và cách tránh. Đọc
 12. **Don't recreate library code in the host**: `MapperUtil`, `SessionUtil`, the `Q_*`/`S_*` admin entities, `AuditableEntity`/`AuditEntityListener`, `ApiResponse`, `AuditDTO`, exceptions, and Spring Security config all come from `pmis3-security-starter` (`com.pmis.common.*`). Import them; don't duplicate. The host has no `util` package.
 
 13. **Don't add a `SecurityFilterChain` / `RestTemplate` / `ControllerAdvice` unless overriding**: these are auto-configured by the library (`@ConditionalOnMissingBean`). Define your own bean only to intentionally override.
+
+14. **Unique index trên cột cho phép trống (SQL Server)**: unique index KHÔNG có bộ lọc coi `NULL` là một giá trị —
+    cả bảng chỉ được ĐÚNG MỘT dòng `NULL` (và một dòng `''`). Cột "được để trống" + unique thường = lỗi 500 từ
+    bản ghi trống thứ hai. Cách xử lý: (a) nghiệp vụ bắt buộc nhập → chặn trống ở service (400); (b) cho trống →
+    chuẩn hóa trống thành `NULL` (không bao giờ lưu `''`) VÀ index phải có bộ lọc `WHERE COL IS NOT NULL`.
+    Xóa mềm không giải phóng giá trị: dòng `ISDEL = 1` vẫn giữ chỗ trong index.
+
+15. **Kiểm ràng buộc ở service phải khớp phạm vi ràng buộc CSDL**: kiểm trùng chỉ trong "thiết bị còn sống của
+    đơn vị" trong khi unique index áp TOÀN BẢNG (cả dòng đã xóa mềm, cả đơn vị khác) → giá trị lọt qua kiểm
+    của service rồi CSDL ném `DataIntegrityViolationException` → 500 "Đã xảy ra lỗi hệ thống". Đọc định nghĩa
+    index/constraint thật (`sys.indexes`, `docs/**/schema-dump.md`) trước khi viết kiểm; dồn kiểm vào MỘT
+    component dùng chung cho thêm mới / cập nhật / đổi mã / import (vd `AAssetCodeGuard`).
+
+16. **Chuẩn hóa chuỗi người dùng nhập trước khi kiểm và ghi**: trim, trống → `null`. Giao diện có thể gửi `''`,
+    API khác gửi thiếu field (`null`) — hai đường cho hai giá trị khác nhau trong CSDL.
+
+17. **DB dev là DB DÙNG CHUNG** (dù backend chạy trên máy): KHÔNG chạy DDL (tạo/xóa index, ALTER) hay UPDATE hàng
+    loạt khi người dùng chưa đồng ý — viết script idempotent vào `scripts/` (kiểu `IF NOT EXISTS … sys.indexes`)
+    và để người dùng chạy. Index có bộ lọc yêu cầu `QUOTED_IDENTIFIER`/`ANSI_NULLS` ON cho mọi lệnh ghi bảng —
+    kiểm stored procedure/trigger cũ (`sys.sql_modules.uses_quoted_identifier`) trước khi đề xuất.
+
+18. **Debug 500 "Đã xảy ra lỗi hệ thống"**: body không có nguyên nhân. Lấy stack trace từ console của service
+    (chạy debug trong IntelliJ thì log CHỈ ở đó) hoặc viết test tái hiện — đừng đoán. Thử API bằng tay thì dùng
+    ĐÚNG tên tham số như frontend gửi (sai tên `@RequestParam(required = false)` → giá trị null → lỗi giả).
+    Sửa xong phải khởi động lại service trước khi kiểm lại.

@@ -1,6 +1,6 @@
 {
   "name": "pmis3-frontend",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Quy ước frontend PMIS3: Angular zoneless + signals, PrimeNG, TailwindCSS tw- prefix, bảng dữ liệu, form/dialog, routing, phân quyền, state, unit test (Vitest) + e2e (Playwright). Dành cho mọi repo frontend PMIS3.",
   "author": {
     "name": "PMIS3 Team - EVNICT"
