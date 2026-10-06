@@ -29,7 +29,8 @@ Mỗi chức năng giao đi kèm test của nó — code và test là **một** 
 
 Bộ khung dùng chung: `src/testing/` (unit) và `e2e/fixtures`, `e2e/pages`, `e2e/support` (e2e).
 Bản chuẩn: `pmis3-nguon-frontend` (đủ cả mock / smoke / live, mẫu module Thiết bị: `e2e/pages/thietbi`,
-`e2e/smoke/thiet-bi.spec.ts`, `e2e/live/thiet-bi.spec.ts`) và `pmis3-luoi-frontend-thietbi` (mock + smoke).
+`e2e/smoke/thiet-bi.spec.ts`, `e2e/live/thiet-bi.spec.ts`) và `pmis3-luoi-frontend-thietbi` (cùng cấu hình
+mock / smoke / live, backend `localhost:8387`).
 Repo khác chưa có thì chép nguyên các thư mục đó kèm `vitest.config.ts`, `playwright.config.ts`,
 `src/test-setup.ts`, `scripts/test-unit.mjs`, `scripts/serve-e2e.mjs`.
 
@@ -105,6 +106,7 @@ Test và trình đọc màn hình tìm phần tử theo cùng một cách, nên 
 - [ ] Bug đã sửa có test tái hiện
 - [ ] Template đạt quy tắc Testability
 - [ ] `npm test`, `npm run e2e:mock`, `npm run e2e:smoke`, `npm run e2e:live` xanh — kết quả ghi vào PR
+- [ ] `npm run lint` 0 error; code mới không thêm cảnh báo (`no-explicit-any`, `prefer-inject`, a11y template)
 
 ## Tham chiếu
 
