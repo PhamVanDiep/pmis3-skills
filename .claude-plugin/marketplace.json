@@ -11,7 +11,7 @@
       "name": "pmis3-frontend",
       "description": "Quy ước frontend PMIS3: Angular 21 zoneless + signals, PrimeNG 21, TailwindCSS tw- prefix, bảng dữ liệu, form/dialog, routing, phân quyền, state, unit/smoke/e2e test bắt buộc. Dành cho mọi repo frontend PMIS3.",
       "source": "./plugins/pmis3-frontend",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "category": "development",
       "keywords": ["angular", "primeng", "tailwind", "pmis3", "frontend"]
     },
@@ -19,7 +19,7 @@
       "name": "pmis3-backend",
       "description": "Quy ước backend PMIS3: Spring Boot + SQL Server, pmis3-security-starter, sinh CRUD, controller/service/data, phân quyền theo đơn vị, thông báo, unit test bắt buộc. Dành cho mọi microservice backend PMIS3.",
       "source": "./plugins/pmis3-backend",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "category": "development",
       "keywords": ["spring-boot", "java", "sql-server", "pmis3", "backend"]
     },
@@ -27,7 +27,7 @@
       "name": "pmis3-workflow",
       "description": "Quy trình làm việc dùng chung cho cả FE lẫn BE: work item Azure DevOps on-prem, sinh tài liệu BA, dựng chức năng từ bản thiết kế Claude Design. Kèm cơ chế tự kiểm tra cập nhật bộ skill.",
       "source": "./plugins/pmis3-workflow",
-      "version": "1.3.0",
+      "version": "1.4.0",
       "category": "workflow",
       "keywords": ["azure-devops", "documentation", "pmis3", "workflow"]
     }

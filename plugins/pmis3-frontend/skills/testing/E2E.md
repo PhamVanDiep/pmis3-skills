@@ -134,6 +134,19 @@ Chuyển trạng thái bị backend từ chối (`api.fail`) → trạng thái t
   (vd ràng buộc CSDL chưa được kiểm ở service), không phải "test chập chờn".
 - Dữ liệu tạo trong test phải đúng ràng buộc nghiệp vụ hiện hành (vd mã thiết bị bắt buộc khi thêm mới) —
   ràng buộc đổi thì sửa test live theo.
+- **Backend vừa sửa mà smoke/live đỏ** — đọc mã lỗi trước khi sửa test:
+  `404 "Không tìm thấy endpoint …"` = service đang chạy bản cũ (chưa khởi động lại); `500` ở mọi API đọc một
+  entity vừa thêm cột = script DDL chưa chạy (kiểm chỉ đọc: `SELECT COL_LENGTH('<BẢNG>','<CỘT>')`);
+  endpoint mới bị chặn quyền = chưa chạy script `Q_FUNCTION_ENDPOINT`. Báo người dùng chạy script / khởi động lại.
+- **Smoke đỏ ngẫu nhiên khi chạy song song** (mỗi lần một test khác, đều timeout): backend dev chậm. Chạy lại
+  `npx playwright test --project=smoke --workers=1` trước khi kết luận; tuần tự vẫn đỏ mới là lỗi thật.
+- **Mock trả mọi thứ cùng lúc, backend thật trả lần lượt** — giao diện phụ thuộc số phần tử (gallery, dải
+  thumbnail, bộ đếm) có thể chỉ hỏng trên dữ liệu thật. Viết unit test cho kịch bản dữ liệu về dần (mỗi
+  request một `Subject`, `next` từng cái).
+- **Tái hiện lỗi người dùng báo trên một bản ghi thật** (URL cụ thể) khi không có trình duyệt điều khiển: spec tạm
+  `e2e/smoke/zz-debug-<việc>.spec.ts`, tên test mang `@smoke` (project smoke lọc theo tag — thiếu tag thì
+  "No tests found"); `page.goto(url)`, log response/DOM bằng `console.log`, đính ảnh bằng `testInfo.attach`
+  (ảnh nằm trong `playwright-report/data/`). Tìm ra nguyên nhân → test tái hiện ở unit/mock → sửa → xóa spec tạm.
 
 ## Chạy & debug
 

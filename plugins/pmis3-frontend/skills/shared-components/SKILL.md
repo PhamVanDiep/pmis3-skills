@@ -1,6 +1,6 @@
 ---
 name: shared-components
-description: 'Component và util dùng chung của PMIS3, ƯU TIÊN tái dùng trước khi viết mới: TonKhoDialog, MaterialPickerDialog cho dữ liệu lớn, PagePanel, AuditHistoryCard, ExtAttrForm cho thuộc tính mở rộng, WordEditor soạn thảo và xuất PDF. Kèm pattern chọn nhiều dòng với API bulk và quản lý ảnh qua File API. Đọc TRƯỚC khi định viết helper hay dialog mới.'
+description: 'Component và util dùng chung của PMIS3, ƯU TIÊN tái dùng trước khi viết mới: TonKhoDialog, MaterialPickerDialog cho dữ liệu lớn, popup chọn phân loại/nhà chế tạo/nhà cung cấp/nước SX + PickerField, PagePanel, AuditHistoryCard, ExtAttrForm cho thuộc tính mở rộng, WordEditor soạn thảo và xuất PDF. Kèm pattern chọn nhiều dòng với API bulk và quản lý ảnh qua File API. Đọc TRƯỚC khi định viết helper hay dialog mới.'
 ---
 
 # Shared Components & Large-Data Patterns
@@ -26,9 +26,13 @@ xử lý file, JWT, tọa độ, localStorage...), **BẮT BUỘC đọc `wiki/t
 | **MaterialPickerDialogComponent** | `app-material-picker-dialog` | `[(visible)]`, `selectionMode`, `[selected]`, `[excludeCodes]`, `[header]`, `(confirmed)` | Chọn vật tư (lazy, single/multiple) khi dữ liệu lớn |
 | **PagePanelComponent** | `app-page-panel` | `[title]`, `[subtitle]`, `(closed)` + slot `[actions]` | Trang chi tiết full-page (overlay fixed). Tự khóa cuộn nền khi mở (tránh 2 thanh cuộn) |
 | **AuditHistoryCardComponent** | `app-audit-history-card` | `[title]` (mặc định `'Lịch sử'`), `[data]` (model extends `AuditDTO`) | Card hiển thị audit: người tạo / thời điểm tạo / người sửa / thời điểm sửa |
-| **ExtAttrFormComponent** | `app-ext-attr-form` | `objtypeid`, `[objid]`, `[attrgroupid]`, `[readonly]`, `[columns]` + API `isValid()`/`save()`/`reload()`/`getValues()` | Form **thuộc tính mở rộng** động theo Loại thuộc tính × Kiểu dữ liệu |
+| **ExtAttrFormComponent** | `app-ext-attr-form` | `objtypeid`, `[objid]`, `[attrgroupid]` / `[attrgroupids]`, `[readonly]`, `[columns]` (1–4, tự co trên màn hẹp), `[choPhepThieuBatBuoc]`, `[kieuTenNhom]` (`'fieldset'` \| `'tieuDe'`), `[chiHienBatBuocVaDaNhap]`, `emptyText` + API `isValid()`/`save()`/`reload()`/`getValues()` | Form **thuộc tính mở rộng** động theo Loại thuộc tính × Kiểu dữ liệu |
 | **WordEditorComponent** | `app-word-editor` | `[(content)]`, `[(headerHtml)]`, `[(footerHtml)]`, `[fileName]`, `[canvasHeight]`, `[readOnly]`, `[showStatusBar]`, `(exported)` + API `getHtml()`/`setHtml()`/`exportPdf()` | Soạn thảo văn bản kiểu Word trên trang A4, **đầu/chân trang lặp mọi trang** + **xuất PDF** |
-| **ImageAttachmentComponent** | `app-image-attachment` | `objTypeId`, `[objId]`, `attachType`, `[maxFiles]`, `[readonly]`, `emptyText`, `unsavedText`, `limitText` | Khối **ảnh đính kèm** của một đối tượng: upload, kéo thả, xem phóng to, tải về, xóa. `maxFiles=1` → một ảnh lớn (mã QR) |
+| **ImageAttachmentComponent** | `app-image-attachment` | `objTypeId`, `[objId]`, `attachType`, `[maxFiles]`, `[readonly]`, `[gallery]`, `emptyText`, `unsavedText`, `limitText` | Khối **ảnh đính kèm** của một đối tượng: upload, kéo thả, xem phóng to, tải về, xóa. `maxFiles=1` → một ảnh lớn (mã QR); `[gallery]="true"` → ảnh lớn + dải thumbnail + trình xem toàn màn hình (phóng/thu, xoay, vừa khung, tải xuống, phím `+ - 0 R`) |
+| **PickerFieldComponent** | `app-picker-field` | `text`, `placeholder`, `inputId`, `disabled`, `clearable`, `invalid`, `pickLabel` · `(pick)`, `(cleared)` | Ô chỉ đọc hiện **tên** + nút "…" + ✕ — mặt ngoài chung của mọi popup chọn danh mục. Export `PickerValue<T> = { id, label }` |
+| **CategoryPickerDialogComponent** | `app-category-picker-dialog` | `[(visible)]`, `value`, `header` · `(picked)` | Chọn **phân loại thiết bị** trên cây (tìm lọc + tự mở nhánh, chọn mọi nút) |
+| **ManufacturerPickerDialogComponent** / **VendorPickerDialogComponent** | `app-manufacturer-picker-dialog` / `app-vendor-picker-dialog` | `[(visible)]`, `value`, `valueLabel`, `header` · `(picked)` | Chọn **nhà chế tạo / nhà cung cấp** (`S_COMPANY`), bảng lazy phân trang server `/asset/lookup/manufacturers\|vendors` |
+| **CountryPickerDialogComponent** | `app-country-picker-dialog` | `[(visible)]`, `countries`, `value: number`, `header` · `(picked)` | Chọn **nước sản xuất**, lọc phía FE (danh mục nhỏ) |
 
 ## Card "Lịch sử" (audit) — KHÔNG tự viết lại
 Mọi màn hình chi tiết cần hiển thị thông tin tạo/sửa → dùng **`AuditHistoryCardComponent`**, KHÔNG copy markup.
@@ -90,6 +94,12 @@ Khi danh sách nguồn rất lớn (vd toàn bộ vật tư), KHÔNG nạp hết
 Dùng **`MaterialPickerDialogComponent`**: lazy phân trang + tìm kiếm server-side, chọn theo **mã**
 (giữ lựa chọn khi chuyển trang), hiển thị mã đã chọn dạng chip + nút "Chọn" mở picker.
 
+Chọn **một** giá trị danh mục trên form (phân loại, nhà chế tạo, nhà cung cấp, nước SX…): `app-picker-field`
+hiện TÊN, `(pick)` mở popup tương ứng, `(picked)` trả `{ id, label }` — form giữ mã để lưu và tên để hiện
+(tên ban đầu lấy từ trường `*desc` của DTO chi tiết, không nạp cả danh mục chỉ để tra tên). Danh mục mới chưa
+có popup → viết popup riêng theo mẫu `company-picker-dialog` (lớp nền + template dùng chung) và
+`picker-dialog.scss`; danh mục lớn thì kèm API phân trang `keyword/page/size` ở backend.
+
 ## Chọn nhiều dòng + thanh hành động (list page)
 - `p-table` + `dataKey` + `[selection]`/`(selectionChange)` → signal `selectedItems`.
 - Cột đầu: `<p-tableHeaderCheckbox>` (header) và `<p-tableCheckbox [value]="item">` (body, bọc `$event.stopPropagation()`).
@@ -128,7 +138,8 @@ Component tự lo trọn vòng đời qua File API dùng chung: `GET /file/list`
 - **SVG có thể chứa script** → CHỈ hiển thị qua `<img>`/`p-image`. KHÔNG iframe, KHÔNG mở tab mới.
   Không gán `getDownloadUrl()` thẳng vào `<img src>` (svg không hiện).
 - Thu hồi object URL khi gỡ ảnh / hủy component.
-- Xem toàn màn hình: `<p-image [preview]="true">` + import **`GlobalImageOverrideDirective`** để có nút Tải xuống.
+- Xem toàn màn hình: nhiều ảnh → `[gallery]="true"` (trình xem có sẵn thanh công cụ); tự dùng `<p-image [preview]="true">`
+  thì import **`GlobalImageOverrideDirective`** để có nút Tải xuống. Bẫy của `p-galleria`: skill `primeng-rules`.
 - Vùng kéo thả: khi bản ghi đã lưu, **luôn `preventDefault` ở `dragover`/`drop` kể cả khi đã đủ ảnh** —
   không chặn thì thả tệp vào là trình duyệt mở tệp và rời khỏi trang.
 

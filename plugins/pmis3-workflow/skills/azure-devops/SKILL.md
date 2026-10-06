@@ -150,11 +150,17 @@ Khai báo trong `azdo.config.json`. Chỉ tự đổi khi state **hiện tại**
 
 ## Quy trình
 
-1. **Đọc** — `show <id>`. Không có ID thì `mine -All` để người dùng chọn.
+1. **Đọc** — `show <id>`. Không có ID thì `mine -All` để người dùng chọn. `show` chỉ in chữ: mô tả / System Info
+   có ảnh nhúng (thiết kế, ảnh chụp đánh dấu kiểu "C1: bỏ dòng này") thì ảnh mang yêu cầu — GET
+   `{collection}/_apis/wit/workitems/<id>?api-version=6.0` bằng PAT (cách script dựng request), trích
+   `<img src>` trong field HTML, tải từng ảnh bằng PAT vào scratchpad rồi xem. Ảnh lệch với chữ → hỏi người dùng.
 2. **Xác nhận** — tóm tắt lại yêu cầu theo cách mình hiểu, hỏi người dùng đúng chưa
    **trước khi** viết code. Mô tả work item thường ngắn và thiếu ngữ cảnh.
 3. **Implement** — theo đúng rule của repo (`.claude/rules/`, `CLAUDE.md`, wiki).
-4. **Push** — nếu là Bug thì bắt buộc, vì `finish` sẽ chặn khi còn commit chưa push.
+4. **Push** — nếu là Bug thì bắt buộc, vì `finish` sẽ chặn khi còn commit chưa push. Nhánh có policy bắt buộc
+   pull request (`TF402455: Pushes to this branch are not permitted`) → đẩy lên nhánh riêng
+   `git push origin <nhánh>:feature/<id>-<slug>` và báo người dùng tạo PR; tạo/merge PR là việc của người dùng.
+   Sau khi người dùng merge: `git pull --ff-only` về nhánh gốc.
 5. **Chốt** — theo skill `pmis3-workflow:ado-done`: `finish <id> -Comment "<tổng kết>"` (hoặc
    `state <id> "<State>"` khi người dùng nêu state). Chạy khô trước, `-Yes` sau khi người dùng đồng ý;
    comment và state ghi cùng một lượt.

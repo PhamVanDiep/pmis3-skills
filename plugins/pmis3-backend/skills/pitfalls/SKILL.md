@@ -1,6 +1,6 @@
 ---
 name: pitfalls
-description: 'Các lỗi hay mắc khi làm backend PMIS3 và cách tránh (DDL, audit, soft delete, unique index trên SQL Server, kiểm ràng buộc, DB dùng chung, debug lỗi 500). Đọc khi debug hoặc review code backend.'
+description: 'Các lỗi hay mắc khi làm backend PMIS3 và cách tránh (DDL, audit, soft delete, unique index trên SQL Server, kiểm ràng buộc, DB dùng chung, debug lỗi 500, cột danh sách mã dấu phẩy, thứ tự triển khai cột/endpoint mới, danh mục dùng chung ORGID rỗng, search-core). Đọc khi debug hoặc review code backend.'
 ---
 
 # PMIS3 Common Pitfalls to Avoid
@@ -55,3 +55,32 @@ description: 'Các lỗi hay mắc khi làm backend PMIS3 và cách tránh (DDL,
     (chạy debug trong IntelliJ thì log CHỈ ở đó) hoặc viết test tái hiện — đừng đoán. Thử API bằng tay thì dùng
     ĐÚNG tên tham số như frontend gửi (sai tên `@RequestParam(required = false)` → giá trị null → lỗi giả).
     Sửa xong phải khởi động lại service trước khi kiểm lại.
+
+19. **Cột chứa danh sách mã cách dấu phẩy** (`S_ATTRIBUTE_GROUP.DEFAULTTOALL`, `USINGBY`, …; giá trị như
+    `A`, `A,B`, `B, A`): so khớp **đúng từng mã** — bọc dấu phẩy hai đầu, bỏ khoảng trắng:
+    `',' + REPLACE(ISNULL(COL,''),' ','') + ',' LIKE '%,A,%'` (mã truyền bằng tham số, thoát `_ % [`).
+    `LIKE '%A%'` khớp cả `AB`, `MA`, `CONGVIEC`… → lọt dữ liệu của đối tượng khác. Dùng hàm dùng chung
+    `CodeListMatch` (bản SQL + bản Java cùng ngữ nghĩa — đã có trong `backend-thietbi` và `search-core`),
+    unit test đủ: `A`, `A,B`, `B, A`, `AB`, `MA`, `A,A`, rỗng, null. `USINGBY` = nhóm dùng cho đối tượng nào
+    (hiển thị/lọc/index); `DEFAULTTOALL` = nhóm tự gắn khi tạo mới.
+
+20. **Thêm cột vào entity / thêm endpoint — thứ tự triển khai**: entity map cột chưa có trên DB → MỌI truy vấn
+    của entity đó ném `Invalid column name` (500 ở cả API cũ). Endpoint mới chưa đăng ký `Q_FUNCTION_ENDPOINT`
+    → bị chặn quyền. Mỗi thay đổi kèm 2 script idempotent trong `scripts/` (DDL; `INSERT Q_FUNCTION_ENDPOINT`)
+    và ghi rõ trong báo cáo/PR: **chạy script → khởi động lại service → kiểm**. Sau khởi động lại mà endpoint
+    mới vẫn `404 "Không tìm thấy endpoint"` → service chưa chạy bản mới.
+
+21. **Danh mục dùng chung có `ORGID` rỗng** (vd `S_COMPANY` — nhà chế tạo / nhà cung cấp, cả bảng `ORGID = NULL`
+    trên dev): lọc `ORGID = :orgid` trả danh sách rỗng mà không báo lỗi. Danh mục dùng chung lọc
+    `(ORGID IS NULL OR ORGID = :orgid)`. Kiểm phân bố dữ liệu thật (`SELECT ORGID, COUNT(*) … GROUP BY ORGID`)
+    trước khi viết điều kiện đơn vị cho bảng danh mục.
+
+22. **Search-core (Elasticsearch) — thêm trường tìm kiếm**: (a) builder document + mapping (`IndexMappingService`,
+    golden mapping test) ở `search-core`; (b) `thietbi` đọc kết quả qua `AssetSearchRow` của
+    `pmis3-search-contract` (repo `backend-common`) — trường lạ bị bỏ qua: nâng contract, hoặc lớp con
+    (`AssetSearchRowNames`) cho tới khi nâng; đồng bộ `docs/search-core/*.mapping.json` + `mapping-rules.md`
+    của thietbi. Chỉ THÊM trường → không cần index mới: rollout **indexer trước, api sau** (indexer tự thêm
+    mapping khi khởi động) rồi reindex `IN_PLACE`; đổi kiểu/analyzer → `NEW_INDEX`. Xóa index bằng tay
+    (Kibana) → khởi động lại indexer NGAY để mapping sync tạo lại index + alias (job tự dựng lại không tự tạo
+    index). Chi tiết vận hành: `pmis3-nguon-search-core/docs/RUNBOOK.md`.
+
