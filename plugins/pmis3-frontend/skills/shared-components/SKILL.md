@@ -28,7 +28,7 @@ xử lý file, JWT, tọa độ, localStorage...), **BẮT BUỘC đọc `wiki/t
 | **AuditHistoryCardComponent** | `app-audit-history-card` | `[title]` (mặc định `'Lịch sử'`), `[data]` (model extends `AuditDTO`) | Card hiển thị audit: người tạo / thời điểm tạo / người sửa / thời điểm sửa |
 | **ExtAttrFormComponent** | `app-ext-attr-form` | `objtypeid`, `[objid]`, `[attrgroupid]` / `[attrgroupids]`, `[readonly]`, `[columns]` (1–4, tự co trên màn hẹp), `[choPhepThieuBatBuoc]`, `[kieuTenNhom]` (`'fieldset'` \| `'tieuDe'`), `[chiHienBatBuocVaDaNhap]`, `emptyText` + API `isValid()`/`save()`/`reload()`/`getValues()` | Form **thuộc tính mở rộng** động theo Loại thuộc tính × Kiểu dữ liệu |
 | **WordEditorComponent** | `app-word-editor` | `[(content)]`, `[(headerHtml)]`, `[(footerHtml)]`, `[fileName]`, `[canvasHeight]`, `[readOnly]`, `[showStatusBar]`, `(exported)` + API `getHtml()`/`setHtml()`/`exportPdf()` | Soạn thảo văn bản kiểu Word trên trang A4, **đầu/chân trang lặp mọi trang** + **xuất PDF** |
-| **ImageAttachmentComponent** | `app-image-attachment` | `objTypeId`, `[objId]`, `attachType`, `[maxFiles]`, `[readonly]`, `[gallery]`, `emptyText`, `unsavedText`, `limitText` | Khối **ảnh đính kèm** của một đối tượng: upload, kéo thả, xem phóng to, tải về, xóa. `maxFiles=1` → một ảnh lớn (mã QR); `[gallery]="true"` → ảnh lớn + dải thumbnail + trình xem toàn màn hình (phóng/thu, xoay, vừa khung, tải xuống, phím `+ - 0 R`) |
+| **ImageAttachmentComponent** | `app-image-attachment` | `objTypeId`, `[objId]`, `attachType`, `[maxFiles]`, `[readonly]`, `[gallery]`, `emptyText`, `unsavedText`, `limitText` | Khối **ảnh đính kèm** của một đối tượng: upload, kéo thả, xem phóng to, tải về, xóa. `maxFiles=1` → một ảnh lớn (mã QR); mặc định gallery: ảnh lớn + dải thumbnail + trình xem toàn màn hình (phóng/thu, xoay, vừa khung, tải xuống, phím `+ - 0 R`) |
 | **PickerFieldComponent** | `app-picker-field` | `text`, `placeholder`, `inputId`, `disabled`, `clearable`, `invalid`, `pickLabel` · `(pick)`, `(cleared)` | Ô chỉ đọc hiện **tên** + nút "…" + ✕ — mặt ngoài chung của mọi popup chọn danh mục. Export `PickerValue<T> = { id, label }` |
 | **CategoryPickerDialogComponent** | `app-category-picker-dialog` | `[(visible)]`, `value`, `header` · `(picked)` | Chọn **phân loại thiết bị** trên cây (tìm lọc + tự mở nhánh, chọn mọi nút) |
 | **ManufacturerPickerDialogComponent** / **VendorPickerDialogComponent** | `app-manufacturer-picker-dialog` / `app-vendor-picker-dialog` | `[(visible)]`, `value`, `valueLabel`, `header` · `(picked)` | Chọn **nhà chế tạo / nhà cung cấp** (`S_COMPANY`), bảng lazy phân trang server `/asset/lookup/manufacturers\|vendors` |
@@ -113,15 +113,27 @@ nếu hàng có `(dblclick)`. Ví dụ: cột "Tồn kho" ở list mở `TonKhoD
 "Tồn kho theo kho" mở chi tiết phân rã kho con/lô.
 
 ## Ảnh đính kèm — dùng `ImageAttachmentComponent`, KHÔNG tự dựng lại
-Mọi khối ảnh gắn với một bản ghi (ảnh thiết bị, ảnh vật tư, ảnh mã QR…) → dùng **`app-image-attachment`**.
+**BẮT BUỘC:** mọi chức năng có upload hình ảnh (ảnh thiết bị, ảnh vật tư, ảnh mã QR, ảnh hiện trường…)
+đều dùng **`app-image-attachment`**. KHÔNG viết `<input type="file" accept="image/*">`, lưới thumbnail hay
+trình xem ảnh riêng. Chức năng cũ còn tự dựng khối ảnh → chuyển sang component này khi đụng tới.
 Component tự lo trọn vòng đời qua File API dùng chung: `GET /file/list` (liệt kê), `FileService.upload`,
 `deleteFile`, `triggerDownload`.
+
+Giao diện chuẩn là **gallery** (mặc định `gallery = true`): ảnh lớn + dải thumbnail + trình xem toàn màn hình.
+Không truyền `[gallery]`; `maxFiles=1` tự về giao diện một ảnh lớn. `[gallery]="false"` (lưới thumbnail)
+chỉ dùng khi người dùng/thiết kế yêu cầu rõ.
 
 ```html
 <app-image-attachment [objTypeId]="'A'" [objId]="assetid()" attachType="QR" [maxFiles]="1"
   [readonly]="readonly()" limitText="Mỗi thiết bị chỉ có một ảnh QR." />
-<app-image-attachment [objTypeId]="'A'" [objId]="assetid()" attachType="AI" [readonly]="readonly()" />
+<!-- Khung ảnh lớn 4:3 theo bề ngang: đặt trong cột hẹp, hoặc giới hạn bề rộng khi nằm ở form rộng cả trang -->
+<app-image-attachment class="block w-full max-w-md" [objTypeId]="'G_VATTU'" [objId]="maVattu"
+  attachType="AI" [readonly]="!canSave" />
 ```
+
+- Khung ảnh lớn của gallery cao theo tỉ lệ 4:3 của bề ngang → ở form rộng cả trang phải giới hạn
+  (`class="block w-full max-w-md"`), nếu không ảnh chiếm gần hết màn hình.
+- Luôn truyền `[readonly]` theo quyền ghi của màn (thiếu quyền → không có nút thêm/xóa ảnh).
 
 - `objId` rỗng (bản ghi chưa lưu) → hiện `unsavedText`, khóa tải lên. Backend (`validateObjAttach`)
   vốn từ chối upload khi bản ghi chưa tồn tại.

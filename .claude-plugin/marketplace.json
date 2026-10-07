@@ -11,7 +11,7 @@
       "name": "pmis3-frontend",
       "description": "Quy ước frontend PMIS3: Angular 21 zoneless + signals, PrimeNG 21, TailwindCSS tw- prefix, bảng dữ liệu, form/dialog, routing, phân quyền, state, unit/smoke/e2e test bắt buộc. Dành cho mọi repo frontend PMIS3.",
       "source": "./plugins/pmis3-frontend",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "category": "development",
       "keywords": ["angular", "primeng", "tailwind", "pmis3", "frontend"]
     },
