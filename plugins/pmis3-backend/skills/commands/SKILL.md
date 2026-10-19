@@ -61,9 +61,17 @@ docker-compose down
 # Compile and check for errors
 ./mvnw compile
 
-# Verify project (runs tests and checks)
+# Tự format code (Spotless, palantir-java-format, thụt lề 4 dấu cách) — chạy trước khi commit
+./mvnw spotless:apply
+
+# Chỉ kiểm style (CI chạy đúng lệnh này)
+./mvnw spotless:check checkstyle:check
+
+# Verify project (runs tests + spotless:check + checkstyle:check)
 ./mvnw verify
 ```
+
+Quy định và cách cài style check: skill `code-style`.
 
 ## Server Info
 

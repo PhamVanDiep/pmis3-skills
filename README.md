@@ -79,7 +79,8 @@ Command: `/fe-spec`.
 ### `pmis3-backend` — 13 skill
 
 `architecture`, `auth`, `controller`, `service`, `data`, `notification`, `config`, `pitfalls`,
-`crud`, `add-api`, `frontend-spec`, `commands`, `testing` (BẮT BUỘC khi xây mới/hiệu chỉnh: unit test
+`crud`, `add-api`, `frontend-spec`, `commands`, `code-style` (BẮT BUỘC: thụt lề 4 dấu cách, Spotless +
+Checkstyle chạy ở `verify` và CI), `testing` (BẮT BUỘC khi xây mới/hiệu chỉnh: unit test
 JUnit + Mockito, ràng buộc trả 400 thay vì 500, Definition of Done).
 
 ### `pmis3-workflow` — 6 skill
