@@ -8,7 +8,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   parseArgs, htmlToText, markdownToAdoHtml, parseFieldArgs, splitIdList, REL_MAP, missingFieldFromError,
-  resolveProject, formatIdentity, formatAdoDate, checkPushed,
+  resolveProject, formatIdentity, formatAdoDate, checkPushed, eqi,
 } from './azdo-lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -131,7 +131,7 @@ async function main(argv) {
 
   // Đọc thì cảnh báo, không chặn (ghi sẽ chặn ở các lệnh ghi).
   const checkScopeRead = (itemProject, id) => {
-    if (itemProject === repoProject) return;
+    if (eqi(itemProject, repoProject)) return;
     warn(`#${id} thuộc project '${itemProject}', nhưng repo hiện tại thuộc '${repoProject}'.`);
     if (opts.crossProject) { warn('Bỏ qua kiểm tra vì có cờ -CrossProject.'); return; }
     warn('Chỉ đọc nên vẫn hiển thị — nhưng kiểm tra lại xem có đang mở nhầm repo không.');
@@ -186,7 +186,7 @@ async function main(argv) {
   };
   // Ghi sang project khác repo thì chặn (trừ -CrossProject). Thông báo ra stderr.
   const checkScopeWrite = (itemProject, id) => {
-    if (itemProject === repoProject) return;
+    if (eqi(itemProject, repoProject)) return;
     warn(`#${id} thuộc project '${itemProject}', nhưng repo hiện tại thuộc '${repoProject}'.`);
     if (opts.crossProject) { warn('Bỏ qua kiểm tra vì có cờ -CrossProject.'); return; }
     warn('DỪNG: không ghi sang project khác từ repo này.');
@@ -357,7 +357,7 @@ async function main(argv) {
     case 'create': {
       if (!arg1) throw new Error('Thiếu type. Ví dụ: azdo.sh create Task "Tiêu đề"');
       if (!arg2) throw new Error('Thiếu tiêu đề work item.');
-      if (repoProject !== gitProject && !opts.crossProject) {
+      if (!eqi(repoProject, gitProject) && !opts.crossProject) {
         warn(`Sẽ tạo ở project '${repoProject}', nhưng repo hiện tại thuộc '${gitProject}'.`);
         warn('DỪNG: không tạo work item sang project khác từ repo này.');
         warn(`Mở repo thuộc project '${repoProject}' rồi chạy lại. Nếu chắc chắn đúng thì thêm cờ -CrossProject.`);
@@ -480,20 +480,21 @@ async function main(argv) {
       checkScopeWrite(itemProject, arg1);
 
       const valid = (await typeStates(itemProject, type)).map((s) => s.name);
-      if (!valid.includes(arg2)) {
+      const canonical = valid.find((n) => eqi(n, arg2));
+      if (!canonical) {
         out(`'${arg2}' không phải state hợp lệ của '${type}'.`);
         await showStateMenu(itemProject, type, cur);
         throw new ExitCode(1);
       }
-      const fields = buildStateFields(arg2);
+      const fields = buildStateFields(canonical);
       if (!opts.yes) {
-        out(`CHẠY KHÔ. #${arg1} [${type}] @ ${itemProject} : '${cur}' -> '${arg2}'`);
+        out(`CHẠY KHÔ. #${arg1} [${type}] @ ${itemProject} : '${cur}' -> '${canonical}'`);
         showFields(fields);
         out('Thêm cờ -Yes để thực thi.');
         break;
       }
       await invokeStateChange(arg1, fields);
-      out(`#${arg1} [${type}] : '${cur}' -> '${arg2}'. Xong.`);
+      out(`#${arg1} [${type}] : '${cur}' -> '${canonical}'. Xong.`);
       break;
     }
 
@@ -516,7 +517,7 @@ async function main(argv) {
         throw new ExitCode(2);
       }
       const allowed = rule.allowedFrom ?? [];
-      if (!allowed.includes(cur)) {
+      if (!allowed.some((a) => eqi(a, cur))) {
         out();
         out(`DỪNG: '${cur}' nằm ngoài danh sách tự xử lý của '${type}' (${allowed.join(', ')}).`);
         out('Phải hỏi người dùng chọn state.');

@@ -162,3 +162,20 @@ test('checkPushed: không có repo nào', () => {
     assert.equal(res.reason, `không tìm thấy git repo trong ${home}`);
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
+
+test('checkPushed: cwd nằm trong repo ngoài che các repo con -> vẫn quét repo con cấp 1', () => {
+  const { home, mk } = gitTmp();
+  try {
+    const outer = join(home, 'outer');
+    mkdirSync(outer);
+    execFileSync('git', ['init', '-b', 'main'], { cwd: outer, stdio: 'pipe' });
+    const ws = join(outer, 'ws');
+    mkdirSync(ws);
+    mk(ws, 'a');
+    mk(ws, 'b', { ahead: true });
+    const res = checkPushed(ws);
+    assert.equal(res.repos.length, 2);
+    assert.equal(res.ok, false);
+    assert.match(res.reason, /^b: còn 1 commit chưa push/);
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});

@@ -40,6 +40,8 @@ before(async () => {
     { method: 'GET', match: (p) => p.endsWith('/_apis/wit/workitems/103'), body: wi(103, 'PMIS3-NGUON') },
     { method: 'GET', match: (p) => p.endsWith('/_apis/wit/workitems/104'), body: wi(104, 'PMIS3-NGUON', { 'System.WorkItemType': 'Epic' }) },
     { method: 'GET', match: (p) => p.endsWith('/_apis/wit/workitems/105'), body: wi(105, 'PMIS3-NGUON', { 'System.State': 'Closed' }) },
+    { method: 'GET', match: (p) => p.endsWith('/_apis/wit/workitems/106'), body: wi(106, 'KTAT') },
+    { method: 'GET', match: (p) => p.endsWith('/_apis/wit/workitems/107'), body: wi(107, 'PMIS3-NGUON', { 'System.State': 'new' }) },
     { method: 'PATCH', match: (p) => p.endsWith('/_apis/wit/workitems/103'), status: 400,
       body: { message: 'TF401320: Rule Error for field Microsoft.VSTS.Common.ResolvedReason. Error code: Required' } },
     { method: 'PATCH', match: (p) => /\/_apis\/wit\/workitems\/\d+$/.test(p), body: { id: 101 } },
@@ -311,4 +313,31 @@ test('update: PATCH Title và Tags', async () => {
     { op: 'add', path: '/fields/System.Title', value: 'Tiêu đề mới' },
     { op: 'add', path: '/fields/System.Tags', value: 'x' },
   ]);
+});
+
+test('AZDO_PROJECT=ktat so với item KTAT: không phân biệt hoa thường, không exit 4', async () => {
+  mock.requests.length = 0;
+  const r = await run(['comment', '106', 'x', '-Yes'], { AZDO_PROJECT: 'ktat' });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(patches().length, 1);
+});
+
+test('create -Project KTAT với AZDO_PROJECT=ktat: không exit 4', async () => {
+  mock.requests.length = 0;
+  const r = await run(['create', 'Task', 'T', '-Project', 'KTAT', '-Yes'], { AZDO_PROJECT: 'ktat' });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+});
+
+test('state đích viết thường -> gửi tên state chuẩn của server', async () => {
+  mock.requests.length = 0;
+  const r = await run(['state', '101', 'committed', '-Yes'], { AZDO_PROJECT: 'pmis3-nguon' });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(JSON.parse(patches()[0].body)[0].value, 'Committed');
+  assert.match(r.stdout, /'New' -> 'Committed'/);
+});
+
+test('finish: allowedFrom không phân biệt hoa thường', async () => {
+  const r = await run(['finish', '107']);
+  assert.notEqual(r.code, 2, r.stdout + r.stderr);
+  assert.equal(r.code, 3, r.stdout + r.stderr);
 });

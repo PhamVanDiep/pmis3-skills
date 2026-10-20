@@ -386,10 +386,12 @@ function Format-Identity {
     return [string]$Value
 }
 
-# Project của repo hiện tại, lấy từ git remote: .../{Collection}/{Project}/_git/{Repo}
+# Project của repo hiện tại. Thứ tự: -Project > env AZDO_PROJECT > git remote (.../{Project}/_git/{Repo}) > defaultProject.
+# $Override rỗng thì bỏ qua cờ -Project (dùng để lấy "project của repo" cho việc chặn ghi xuyên project).
 function Resolve-AdoProject {
     param($Cfg, [string]$Override)
     if ($Override) { return $Override }
+    if ($env:AZDO_PROJECT) { return $env:AZDO_PROJECT }
     $remote = ''
     try { $remote = (& git config --get remote.origin.url) -join '' } catch { }
     if ($remote -match '/([^/]+)/_git/') {
@@ -398,17 +400,30 @@ function Resolve-AdoProject {
     return (Get-Val $Cfg 'defaultProject')
 }
 
-function Test-BranchPushed {
-    $result = @{ Ok = $false; Reason = ''; Branch = '' }
+function Get-NormPath {
+    param([string]$Path)
+    try { $Path = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath } catch { }
+    return $Path.TrimEnd('\', '/').Replace('/', '\').ToLowerInvariant()
+}
+
+# Kiểm tra push của MỘT repo (thư mục $Dir). Trả @{ Ok; Reason; Branch; Path }.
+function Test-OneRepoPushed {
+    param([string]$Dir)
+    $result = @{ Ok = $false; Reason = ''; Branch = ''; Path = $Dir }
     try {
-        $branch = ((& git rev-parse --abbrev-ref HEAD) -join '').Trim()
+        $branch = ((& git -C $Dir rev-parse --abbrev-ref HEAD) -join '').Trim()
         $result.Branch = $branch
-        $upstream = ((& git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null) -join '').Trim()
+        $upstream = ''
+        try {
+            $ErrorActionPreference = 'Continue'   # git báo lỗi ra stderr khi chưa có upstream; không coi là lỗi chặn
+            $upstream = ((& git -C $Dir rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null) -join '').Trim()
+            if ($LASTEXITCODE -ne 0) { $upstream = '' }
+        } catch { $upstream = '' }
         if (-not $upstream) {
             $result.Reason = "nhánh '$branch' chưa có upstream (chưa push lần nào)"
             return $result
         }
-        $ahead = ((& git rev-list --count "$upstream..HEAD") -join '').Trim()
+        $ahead = ((& git -C $Dir rev-list --count "$upstream..HEAD") -join '').Trim()
         if ([int]$ahead -gt 0) {
             $result.Reason = "còn $ahead commit chưa push trên nhánh '$branch'"
             return $result
@@ -420,6 +435,32 @@ function Test-BranchPushed {
         $result.Reason = "không kiểm tra được trạng thái git: $($_.Exception.Message)"
     }
     return $result
+}
+
+# Cùng ngữ nghĩa checkPushed (azdo-lib.mjs): thư mục hiện tại là gốc một git repo -> kiểm tra repo đó;
+# không thì quét thư mục con cấp 1 có .git và kiểm tra từng repo (kể cả khi thư mục nằm trong một repo ngoài).
+# Ok chỉ khi mọi repo đều đã push; Reason mỗi dòng một repo (repo ok -> liệt kê hết; lỗi -> chỉ repo lỗi).
+function Test-BranchPushed {
+    $cwd = (Get-Location).ProviderPath
+    $dirs = @()
+    $top = ''
+    try { $top = ((& git rev-parse --show-toplevel 2>$null) -join '').Trim() } catch { }
+    if ($top -and (Get-NormPath $top) -eq (Get-NormPath $cwd)) {
+        $dirs = @($cwd)
+    }
+    else {
+        foreach ($d in (Get-ChildItem -LiteralPath $cwd -Directory -Force -ErrorAction SilentlyContinue | Sort-Object Name)) {
+            if (Test-Path -LiteralPath (Join-Path $d.FullName '.git')) { $dirs += $d.FullName }
+        }
+    }
+    if ($dirs.Count -eq 0) {
+        return @{ Ok = $false; Reason = "không tìm thấy git repo trong $cwd"; Branch = ''; Repos = @() }
+    }
+    $repos = @($dirs | ForEach-Object { Test-OneRepoPushed -Dir $_ })
+    $bad = @($repos | Where-Object { -not $_.Ok })
+    $show = if ($bad.Count -eq 0) { $repos } else { $bad }
+    $lines = @($show | ForEach-Object { "$(Split-Path -Leaf $_.Path): $($_.Reason)" })
+    return @{ Ok = ($bad.Count -eq 0); Reason = ($lines -join "`n"); Branch = ''; Repos = $repos }
 }
 
 # ------------------------------------------------------------ ngữ cảnh ------
@@ -514,7 +555,7 @@ function Invoke-StateChange {
     }
     catch {
         $msg = $_.Exception.Message
-        if ($msg -match 'TF401320[^:]*:\s*Rule Error for field\s+([^.\s]+)') {
+        if ($msg -match 'TF401320[^:]*:\s*Rule Error for field\s+([^\s]+?)\.?(?:\s|$)') {
             $missing = $Matches[1]
             Write-Output ""
             Write-Output "DỪNG: chuyển sang '$($Fields['System.State'])' đòi field '$missing'."

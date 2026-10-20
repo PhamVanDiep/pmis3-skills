@@ -11,30 +11,37 @@
 
   "_workflow": "Với mỗi type: chỉ tự đổi state khi state hiện tại nằm trong allowedFrom. Xong việc thì chuyển sang doneState. requirePush=true nghĩa là phải push hết commit mới được đổi. Quy ước: Bug xong -> Committed (code đã push, chờ kiểm thử); Ticket / Product Backlog Item xong -> Done. Task cũng muốn Committed nhưng type Task của PMIS3-NGUON chỉ có To Do / In Progress / Done nên dùng Done.",
 
+  "_activeState": "activeState = state \"đang làm\" mà PMIS Auto Work đặt cho work item khi bắt đầu task (trước khi code). azdo.mjs/azdo.ps1 bỏ qua khóa này.",
+
   "workflow": {
     "Bug": {
       "allowedFrom": ["New", "In Progress", "Reopened"],
       "doneState": "Committed",
+      "activeState": "In Progress",
       "requirePush": true
     },
     "Task": {
       "allowedFrom": ["To Do", "In Progress"],
       "doneState": "Done",
+      "activeState": "In Progress",
       "requirePush": true
     },
     "Ticket": {
       "allowedFrom": ["New", "Ready", "Approved", "Designed", "In Progress", "Accepted"],
       "doneState": "Done",
+      "activeState": "In Progress",
       "requirePush": false
     },
     "Issue": {
       "allowedFrom": ["New", "In Progress", "Reopened"],
       "doneState": "Resolved",
+      "activeState": "In Progress",
       "requirePush": false
     },
     "Product Backlog Item": {
       "allowedFrom": ["New", "Approved", "In Progress", "Designed", "Committed"],
       "doneState": "Done",
+      "activeState": "In Progress",
       "requirePush": false
     }
   }

@@ -1,7 +1,7 @@
 // Logic của azdo.ps1, port sang Node để chạy được trên Linux.
 // Hầu hết là hàm thuần; chỉ checkPushed chạy git. Không phụ thuộc gói ngoài.
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 export const COMMANDS = ['whoami', 'mine', 'show', 'states', 'required', 'comment', 'state', 'finish', 'create', 'update', 'link'];
@@ -276,8 +276,20 @@ function checkOneRepo(dir) {
   return res;
 }
 
+function normPath(p) {
+  let r = path.resolve(p);
+  try { r = realpathSync(r); } catch { /* giữ nguyên */ }
+  return process.platform === 'win32' ? r.toLowerCase() : r;
+}
+
+// Chỉ coi là repo khi gốc repo CHÍNH LÀ dir; nếu dir nằm trong một repo ngoài thì không (để còn quét repo con).
 function isGitRepo(dir) {
-  try { return gitOut(dir, ['rev-parse', '--is-inside-work-tree']) === 'true'; } catch { return false; }
+  try { return normPath(gitOut(dir, ['rev-parse', '--show-toplevel'])) === normPath(dir); } catch { return false; }
+}
+
+// So sánh không phân biệt hoa thường (Azure DevOps không phân biệt hoa thường tên project/state).
+export function eqi(a, b) {
+  return String(a ?? '').toLowerCase() === String(b ?? '').toLowerCase();
 }
 
 // cwd là git repo -> kiểm tra repo đó; không thì quét thư mục con cấp 1 có .git.
