@@ -12,7 +12,7 @@ Script: `azdo.ps1` (Windows, PowerShell 5.1) hoặc `bash azdo.sh` (Linux/macOS/
 
 **Chạy script bằng đường dẫn tuyệt đối** (thư mục skill `azure-devops`) và **giữ cwd ở repo đang làm việc**
 (hoặc thư mục cha chứa các repo + `AZDO_PROJECT`). **Không `cd` vào thư mục skill** — project và kiểm tra push
-lấy theo cwd. Ví dụ dưới viết tắt `.zdo.ps1` / `bash azdo.sh`; thực tế dùng `& "<thư mục skill azure-devops>zdo.ps1"` /
+lấy theo cwd. Ví dụ dưới viết tắt `.\azdo.ps1` / `bash azdo.sh`; thực tế dùng `& "<thư mục skill azure-devops>\azdo.ps1"` /
 `bash "<thư mục skill azure-devops>/azdo.sh"`. Nội dung có khoảng trắng phải để trong nháy kép (thừa đối số → lỗi `Thừa đối số`).
 
 ## Đầu vào

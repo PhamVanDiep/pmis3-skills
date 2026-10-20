@@ -50,12 +50,12 @@ Hai script cùng thư mục với SKILL.md này, **cùng lệnh, cùng cờ, cù
 **Chạy script bằng đường dẫn tuyệt đối** (thư mục chứa skill này), và **giữ cwd ở repo đang làm việc**
 (hoặc thư mục cha chứa các repo + `AZDO_PROJECT`) — script lấy project và kiểm tra push theo cwd.
 **Không `cd` vào thư mục skill.** Ví dụ: `bash "<thư mục skill>/azdo.sh" mine` /
-`& "<thư mục skill>zdo.ps1" mine`. Nội dung có khoảng trắng phải đặt trong nháy kép
+`& "<thư mục skill>\azdo.ps1" mine`. Nội dung có khoảng trắng phải đặt trong nháy kép
 (thừa đối số thì script báo lỗi `Thừa đối số`).
 
 Cờ giữ kiểu PowerShell (một gạch, không phân biệt hoa thường) ở cả hai script, ví dụ
 `bash "<thư mục skill>/azdo.sh" finish 123 -Comment "..." -Yes`. Các ví dụ dưới đây viết tắt `azdo.ps1`
-(đường dẫn đầy đủ: `& "<thư mục skill>zdo.ps1"`); trên bash thay bằng `bash "<thư mục skill>/azdo.sh"`.
+(đường dẫn đầy đủ: `& "<thư mục skill>\azdo.ps1"`); trên bash thay bằng `bash "<thư mục skill>/azdo.sh"`.
 
 | Lệnh | Việc |
 |---|---|
