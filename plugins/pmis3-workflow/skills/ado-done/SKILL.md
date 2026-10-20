@@ -8,7 +8,7 @@ description: 'Đánh dấu work item Azure DevOps (bug, task, ticket, PBI/item�
 Bước cuối của quy trình `azure-devops`: chốt lại work item sau khi code đã làm. Skill này **chỉ lo
 việc chốt** — đọc/implement vẫn theo skill `pmis3-workflow:azure-devops`.
 
-Script: `../azure-devops/azdo.ps1` (cùng plugin). Quy ước state trong `../azure-devops/azdo.config.json`.
+Script: `../azure-devops/azdo.ps1` (Windows, PowerShell 5.1) hoặc `bash ../azure-devops/azdo.sh` (Linux/macOS/container, cần Node ≥ 18) — cùng lệnh, cờ, mã thoát (cùng plugin). Quy ước state trong `../azure-devops/azdo.config.json`.
 
 ## Đầu vào
 
@@ -51,6 +51,7 @@ hợp lệ với type không, sai thì in danh sách để chọn lại.
    .\azdo.ps1 finish <id> -Comment "<tổng kết>"                       # xong theo type
    .\azdo.ps1 state  <id> "<State>" -Comment "<tổng kết>"             # state người dùng chỉ định
    ```
+   Bash: `bash azdo.sh finish <id> -Comment "<tổng kết>"` (nhiều dòng: `-Comment "$(cat <<'EOF' … EOF)"`).
    Cho người dùng xem: state hiện tại → đích, comment, field sẽ ghi.
 4. **Chạy thật** với `-Yes` **chỉ sau khi người dùng đồng ý** (một câu "ok / done / commit đi" ở lượt
    trước là đủ). Comment và state ghi **cùng một lượt PATCH** nên không có tình trạng comment xong
@@ -72,7 +73,7 @@ hợp lệ với type không, sai thì in danh sách để chọn lại.
 | 0 | Xong | Báo kết quả |
 | 1 | State đích không hợp lệ với type | Đưa danh sách state cho người dùng chọn |
 | 2 | State hiện tại ngoài `allowedFrom` hoặc type không có quy ước | Đưa danh sách state cho người dùng chọn, rồi dùng `state` |
-| 3 | Bug nhưng còn commit chưa push | Nhắc push; **không** lách bằng `state` |
+| 3 | Bug nhưng còn commit chưa push (ở thư mục cha: kiểm tra mọi repo con cấp 1; chưa có upstream = chưa push) | Nhắc push; **không** lách bằng `state` |
 | 4 | Item thuộc project khác | Mở đúng repo; không `-CrossProject` |
 | 5 | Thiếu field bắt buộc của bước chuyển | Bước 5 ở trên |
 
@@ -95,6 +96,19 @@ Còn lại: chạy scripts/alter_company_org_123742.sql, bump version pmis3-nguo
 # Exit 5: "Rule Error for field Microsoft.VSTS.Common.ResolvedReason"
 .\azdo.ps1 finish 125001 -Comment "…" -Field "Microsoft.VSTS.Common.ResolvedReason=Fixed" -Yes
 ```
+
+Bash tương đương:
+
+```bash
+bash azdo.sh finish 123742 -Comment "$(cat <<'EOF'
+Đã hiệu chỉnh chức năng ... Còn lại: chạy script SQL.
+EOF
+)" -Yes
+bash azdo.sh state 123742 "In Progress" -Comment "Đang chờ BA xác nhận" -Yes
+```
+
+Lưu ý: comment là HTML — viết `&lt;thẻ&gt;` thay vì `<thẻ>`. Chạy ở thư mục cha nhiều repo thì đặt
+`AZDO_PROJECT=<project>`; `finish` chạy từ thư mục con trong repo sẽ báo không tìm thấy git repo.
 
 ## Không được
 

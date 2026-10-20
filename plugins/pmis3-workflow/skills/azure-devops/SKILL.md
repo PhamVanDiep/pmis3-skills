@@ -40,11 +40,20 @@ HTTP `401` = PAT sai, hết hạn, hoặc thiếu scope → tạo PAT mới, kh�
 
 ## Lệnh
 
-Script: `azdo.ps1` — nằm cùng thư mục với SKILL.md này (PowerShell 5.1).
+Hai script cùng thư mục với SKILL.md này, **cùng lệnh, cùng cờ, cùng mã thoát**:
+
+| Môi trường | Script |
+|---|---|
+| Windows | `azdo.ps1` (PowerShell 5.1) |
+| Linux / macOS / container | `bash azdo.sh` (cần Node ≥ 18; `azdo.sh` chỉ là lớp bọc gọi `azdo.mjs`) |
+
+Cờ giữ kiểu PowerShell (một gạch, không phân biệt hoa thường) ở cả hai script, ví dụ
+`bash azdo.sh finish 123 -Comment "..." -Yes`. Các ví dụ dưới đây viết bằng `azdo.ps1`; trên bash thay
+`azdo.ps1` bằng `bash azdo.sh`.
 
 | Lệnh | Việc |
 |---|---|
-| `azdo.ps1 whoami` | Kiểm tra kết nối + xác định đang đăng nhập bằng ai |
+| `azdo.ps1 whoami` (bash: `bash azdo.sh whoami`) | Kiểm tra kết nối + xác định đang đăng nhập bằng ai |
 | `azdo.ps1 mine` | Work item gán cho tôi, trong project của repo hiện tại |
 | `azdo.ps1 mine -All` | Work item gán cho tôi ở **mọi project** trong collection |
 | `azdo.ps1 show <id>` | Chi tiết: mô tả, repro steps, acceptance criteria, thảo luận, đính kèm |
@@ -62,6 +71,8 @@ Script: `azdo.ps1` — nằm cùng thư mục với SKILL.md này (PowerShell 5.
 Bỏ `-Yes` = chạy khô, chỉ in ra dự định. **Luôn chạy khô trước, cho người dùng xem, rồi mới chạy thật.**
 
 ### Tạo work item
+
+Bash (tương đương): `bash azdo.sh create Task "T1 — Nghiên cứu X" -DescriptionFile ./t1.md -Tags "wayfinder:research" -Parent 122698 -Yes`
 
 ```powershell
 # Mô tả dài thì để trong file Markdown, script tự chuyển sang HTML.
@@ -98,16 +109,25 @@ sang `System.LinkTypes.Dependency-Reverse` (Predecessor) — Azure DevOps tự s
 Tạo work item tham chiếu lẫn nhau thì phải **hai lượt**: `create` hết trước để có ID, rồi `link`
 để nối. Đây đúng là quy trình `create-then-wire` mà `/wayfinder` yêu cầu.
 
-Output là `Write-Output` nên **lọc được**. Danh sách dài thì lọc thay vì đọc hết:
+Output là text thường nên **lọc được**. Danh sách dài thì lọc thay vì đọc hết:
 
 ```powershell
 .\azdo.ps1 mine -All | Select-String -Pattern '\s(Bug|Ticket)\s'
+```
+
+```bash
+bash azdo.sh mine -All | grep -E '\s(Bug|Ticket)\s'
 ```
 
 ## Phạm vi project — QUAN TRỌNG
 
 **Làm ở repo nào thì chỉ đụng work item của project tương ứng.** Project được suy ra từ
 `git remote` của repo hiện tại (`.../{Collection}/{Project}/_git/{Repo}`).
+
+Thứ tự xác định project: cờ `-Project` → biến môi trường **`AZDO_PROJECT`** → `git remote` →
+`defaultProject` trong `azdo.config.json`. `AZDO_PROJECT` dùng khi chạy ở **thư mục cha chứa nhiều
+repo** (không phải git repo nên không có remote), ví dụ `AZDO_PROJECT=PMIS3-NGUON bash azdo.sh mine`.
+Khi đặt, nó cũng là "project của repo" cho guard chặn ghi xuyên project bên dưới.
 
 Một collection có nhiều project (`CSDLMT`, `PMIS3-NGUON`, `PMIS3-OMS`...) và ID work item
 là duy nhất toàn collection, nên **về mặt kỹ thuật** một ID bất kỳ đều tra được từ repo bất kỳ.
@@ -148,6 +168,19 @@ Khai báo trong `azdo.config.json`. Chỉ tự đổi khi state **hiện tại**
 | `4` | Item thuộc project khác với repo hiện tại | Mở đúng repo rồi chạy lại. **Không** tự thêm `-CrossProject` |
 | `5` | Bước chuyển state đòi thêm field (`TF401320: Rule Error for field X`) | Chạy lại kèm `-Field "X=<giá trị>"`; giá trị mang nghĩa nghiệp vụ thì **hỏi người dùng** |
 
+### Kiểm tra push (`requirePush`, Bug)
+
+- Đang đứng ở **gốc một git repo** → chỉ kiểm tra repo đó.
+- Không phải gốc repo (thư mục cha) → kiểm tra **mọi thư mục con cấp 1 là git repo**; tất cả phải đã push.
+- Nhánh chưa có upstream = chưa push. Script nêu rõ repo nào chưa push / thiếu upstream.
+- Chạy `finish` từ **thư mục con bên trong** một repo sẽ báo "không tìm thấy git repo" — hãy chạy từ gốc
+  repo hoặc từ thư mục cha.
+
+### Khóa `activeState`
+
+`azdo.config.json` có thêm khóa `activeState` cho từng type (ví dụ `In Progress`): state "đang làm" mà
+PMIS Auto Work đặt cho work item khi bắt đầu task. `azdo.ps1` / `azdo.mjs` bỏ qua khóa này.
+
 ## Quy trình
 
 1. **Đọc** — `show <id>`. Không có ID thì `mine -All` để người dùng chọn. `show` chỉ in chữ: mô tả / System Info
@@ -179,6 +212,11 @@ Khai báo trong `azdo.config.json`. Chỉ tự đổi khi state **hiện tại**
 
 ## Lưu ý kỹ thuật
 
+- **Comment là HTML.** Comment ghi vào `System.History` và gửi **nguyên văn** (không qua chuyển Markdown như
+  mô tả), còn Azure DevOps hiểu field này là HTML. Chữ dạng `<thẻ>` bị server cắt như thẻ HTML; `<` không
+  đóng sẽ làm **mất phần còn lại** của comment. Muốn hiện dấu ngoặc nhọn thì viết `&lt;thẻ&gt;`
+  (dấu backtick **không** được chuyển thành code trong comment). Có thể dùng thẻ HTML thật như `<b>`, `<br>`.
+
 - `ConvertFrom-Json` của PowerShell 5.1 **chết** trên payload lớn / có key rỗng của Azure DevOps.
   Script dùng `JavaScriptSerializer` (trả về `Dictionary` lồng nhau, truy cập bằng `['key']`).
 - File `azdo.ps1` phải giữ **UTF-8 có BOM**, nếu không PowerShell 5.1 đọc sai tiếng Việt.
@@ -195,3 +233,15 @@ Khai báo trong `azdo.config.json`. Chỉ tự đổi khi state **hiện tại**
   numeric entity (`&#234;`) — vẫn hiển thị đúng, không cần xử lý thêm.
 - API **không** trả về `allowedValues` cho những field kiểu chuỗi tự do như `Severity`; muốn biết
   giá trị hợp lệ thì thử hoặc xem trên web UI. `3 - Medium` chạy được với type `Ticket`.
+
+## Kiểm thử
+
+Chạy bộ test của `azdo.mjs` từ gốc repo (dùng glob, dạng thư mục lỗi trên Node 24):
+
+```bash
+node --test "plugins/pmis3-workflow/skills/azure-devops/tests/*.test.mjs"
+```
+
+Hai biến môi trường **chỉ dành cho test**, không dùng khi làm việc thật: `AZDO_COLLECTION_URL` (trỏ tới
+máy chủ giả) và `AZDO_CREDENTIALS_FILES` (danh sách file credentials thay cho đường dẫn mặc định).
+Đối chiếu hành vi với `azdo.ps1` trên project `KTAT` ghi ở `tests/parity-ktat.md`.
