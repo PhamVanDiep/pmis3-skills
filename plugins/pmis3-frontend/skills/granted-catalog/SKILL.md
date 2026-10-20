@@ -78,9 +78,9 @@ export interface IMainassetGranted {
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '@/environments/environment';
 import { ApiResponse } from '@/app/models/api.model';
 import { ApiContextResolver } from '@/app/core/services/api-context.resolver';
+import { API_BASE_URL, joinUrl } from '@/app/core/services/api-url';
 import {
   IOrganizationGranted,
   IPlantGranted,
@@ -91,10 +91,11 @@ import {
 export class GrantedCatalogService {
   private readonly http = inject(HttpClient);
   private readonly ctx = inject(ApiContextResolver);
+  private readonly apiBase = inject(API_BASE_URL);
 
   /** Getter: resolve context-path của microservice theo route đang mở. */
   private get baseUrl(): string {
-    return `${environment.BASE_URL}/${this.ctx.resolve()}/granted`;
+    return joinUrl(this.apiBase, this.ctx.resolve(), 'granted');
   }
 
   /** Đơn vị được gán. orglevel: P | G | E (optional). */
@@ -151,9 +152,9 @@ private loadPlants() {
 ```typescript
 // ĐÚNG — baseUrl getter qua ApiContextResolver: gọi đúng microservice của màn hình hiện tại
 private get baseUrl(): string {
-  return `${environment.BASE_URL}/${this.ctx.resolve()}/granted`;
+  return joinUrl(this.apiBase, this.ctx.resolve(), 'granted');
 }
 
 // SAI — hard-code AC_QUANTRI: chức năng của microservice khác (vattu/sxd...) sẽ gọi nhầm về quantri
-private readonly baseUrl = `${environment.BASE_URL}/${AC_QUANTRI}/granted`;
+private readonly baseUrl = apiUrl(AC_QUANTRI, 'granted');
 ```

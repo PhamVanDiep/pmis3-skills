@@ -90,7 +90,7 @@ File: `src/app/services/{service-subfolder}/{feature}.service.ts`
 
 **Quy tắc:**
 - `AC_QUANTRI` từ `@/app/constants/api-context.constant` là `pmis3/v1`
-- `baseUrl` = `${environment.BASE_URL}/${AC_QUANTRI}/{api-path}`
+- `baseUrl` = `apiUrl(AC_QUANTRI, '{api-path}')` — KHÔNG import `environment` (xem skill `api-services`)
 - Chỉ implement các method ứng với endpoints có trong SPEC
 - Method `update()` truyền PK qua `params`, data qua body
 - Method `delete()` truyền PK qua `params`
@@ -99,14 +99,14 @@ File: `src/app/services/{service-subfolder}/{feature}.service.ts`
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '@/environments/environment';
 import { ApiResponse } from '@/app/models/api.model';
 import { {FeatureClass}DTO } from '@/app/models/{model-subfolder}/{feature}.model';
 import { AC_QUANTRI } from '@/app/constants/api-context.constant';
+import { apiUrl } from '@/app/core/services/api-url';
 
 @Injectable({ providedIn: 'root' })
 export class {FeatureClass}Service {
-  private readonly baseUrl = `${environment.BASE_URL}/${AC_QUANTRI}/{api-path}`;
+  private readonly baseUrl = apiUrl(AC_QUANTRI, '{api-path}');
 
   constructor(private readonly http: HttpClient) {}
 

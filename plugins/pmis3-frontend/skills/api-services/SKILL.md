@@ -20,13 +20,26 @@ interface ApiResponse<T> {
 }
 ```
 
+## URL backend: `apiUrl()` / `API_BASE_URL` — KHÔNG import `environment`
+
+Gốc URL backend đi qua token `API_BASE_URL` (`@/app/core/services/api-url`), file DUY NHẤT đọc
+`environment.BASE_URL`. Service/component **KHÔNG** `import { environment }` để ghép URL:
+
+- Field khởi tạo (chạy trong injection context): `apiUrl(AC_X, 'duong-dan')` → `<gốc>/<context>/duong-dan`.
+- URL tính lúc gọi (getter, method): `private readonly apiBase = inject(API_BASE_URL)` rồi
+  `joinUrl(this.apiBase, context, 'duong-dan')` — `apiUrl()`/`inject()` không gọi được ngoài injection context.
+- Test hoặc app khác đổi gốc URL: `{ provide: API_BASE_URL, useValue: 'http://api.test' }`.
+
+Repo chưa có `src/app/core/services/api-url.ts` (+ `api-url.spec.ts`) → chép từ `pmis3-nguon-frontend`.
+
 ## Service Pattern
 ```typescript
 import { AC_QUANTRI } from '@/app/constants/api-context.constant';
+import { apiUrl } from '@/app/core/services/api-url';
 
 @Injectable({ providedIn: 'root' })
 export class MyService {
-  private readonly baseUrl = `${environment.BASE_URL}/${AC_QUANTRI}/my-resource`;
+  private readonly baseUrl = apiUrl(AC_QUANTRI, 'my-resource');
 
   constructor(private readonly http: HttpClient) {}
 
@@ -66,13 +79,15 @@ Mỗi microservice backend có module **giống hệt nhau**, **chỉ khác cont
 ```typescript
 import { Injectable, inject } from '@angular/core';
 import { ApiContextResolver } from '@/app/core/services/api-context.resolver';
+import { API_BASE_URL, joinUrl } from '@/app/core/services/api-url';
 
 @Injectable({ providedIn: 'root' })
 export class FileService {
   private readonly http = inject(HttpClient);
   private readonly ctx = inject(ApiContextResolver);
+  private readonly apiBase = inject(API_BASE_URL);
   private get baseUrl(): string {
-    return `${environment.BASE_URL}/${this.ctx.resolve()}/file`;
+    return joinUrl(this.apiBase, this.ctx.resolve(), 'file');
   }
   // ... các method dùng this.baseUrl như bình thường
 }
