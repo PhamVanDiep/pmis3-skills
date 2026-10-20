@@ -45,12 +45,18 @@ hợp lệ với type không, sai thì in danh sách để chọn lại.
    - Đã làm gì, ở repo nào, commit nào (hash + nhánh), file/thư mục chính.
    - Điểm lệch so với mô tả work item và lý do (ví dụ hiểu `ACTIVE=1` là lỗi gõ → đặt `0`).
    - Việc còn lại phía người dùng: chạy script SQL, bump version, push, cấu hình…
-   - Viết Markdown gọn (script chuyển sang HTML). Nhiều dòng thì để trong here-string `@'…'@`.
+   - Comment được gửi **nguyên văn** vào `System.History` (HTML), **không** chuyển Markdown: viết văn bản thuần,
+     không dùng Markdown (`**đậm**`, backtick không thành code). Xuống dòng dùng `<br>` (HTML thật; ký tự xuống dòng
+     đơn thuần có thể bị gộp khi hiển thị). Chữ có `<` `>` phải viết `&lt;` `&gt;` — `<thẻ>` bị server cắt,
+     `<` không đóng làm mất phần còn lại. Nhiều dòng trong PowerShell thì để trong here-string `@'…'@`.
 3. **Chạy khô**:
    ```powershell
    .\azdo.ps1 finish <id> -Comment "<tổng kết>"                       # xong theo type
    .\azdo.ps1 state  <id> "<State>" -Comment "<tổng kết>"             # state người dùng chỉ định
    ```
+   Chạy ở **thư mục cha chứa nhiều repo** (không phải git repo): đặt `AZDO_PROJECT=<project>` (bash) /
+   `$env:AZDO_PROJECT='<project>'` (PowerShell); `finish` Bug sẽ kiểm tra push mọi repo con cấp 1. Chạy từ thư mục
+   con bên trong một repo thì báo "không tìm thấy git repo" — về gốc repo hoặc thư mục cha.
    Bash: `bash azdo.sh finish <id> -Comment "<tổng kết>"` (nhiều dòng: `-Comment "$(cat <<'EOF' … EOF)"`).
    Cho người dùng xem: state hiện tại → đích, comment, field sẽ ghi.
 4. **Chạy thật** với `-Yes` **chỉ sau khi người dùng đồng ý** (một câu "ok / done / commit đi" ở lượt
@@ -74,7 +80,7 @@ hợp lệ với type không, sai thì in danh sách để chọn lại.
 | 1 | State đích không hợp lệ với type | Đưa danh sách state cho người dùng chọn |
 | 2 | State hiện tại ngoài `allowedFrom` hoặc type không có quy ước | Đưa danh sách state cho người dùng chọn, rồi dùng `state` |
 | 3 | Bug nhưng còn commit chưa push (ở thư mục cha: kiểm tra mọi repo con cấp 1; chưa có upstream = chưa push) | Nhắc push; **không** lách bằng `state` |
-| 4 | Item thuộc project khác | Mở đúng repo; không `-CrossProject` |
+| 4 | Item thuộc project khác (project của repo = `AZDO_PROJECT` nếu có, không thì `git remote`) | Mở đúng repo hoặc đặt đúng `AZDO_PROJECT` khi chạy ở thư mục cha; không `-CrossProject` |
 | 5 | Thiếu field bắt buộc của bước chuyển | Bước 5 ở trên |
 
 ## Ví dụ

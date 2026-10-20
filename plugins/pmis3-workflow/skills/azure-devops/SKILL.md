@@ -62,11 +62,11 @@ Cờ giữ kiểu PowerShell (một gạch, không phân biệt hoa thường) �
 | `azdo.ps1 comment <id> "<text>" -Yes` | Thêm comment vào Discussion |
 | `azdo.ps1 state <id> "<state>" -Yes` | Đổi sang state chỉ định |
 | `azdo.ps1 finish <id> -Yes` | Đổi sang state "xong" theo quy ước, có kiểm tra guard |
+| `azdo.ps1 create <type> "<title>" -Yes` | Tạo work item mới |
+| `azdo.ps1 link <id> -Parent\|-Related\|-BlockedBy <ids> -Yes` | Nối quan hệ giữa các work item |
 
 `state` và `finish` nhận thêm `-Comment "<text>"` (ghi Discussion cùng lượt) và `-Field "Tên=Giá trị"`
 (bù field bắt buộc của bước chuyển) — chốt work item thì dùng skill `pmis3-workflow:ado-done`.
-| `azdo.ps1 create <type> "<title>" -Yes` | Tạo work item mới |
-| `azdo.ps1 link <id> -Parent\|-Related\|-BlockedBy <ids> -Yes` | Nối quan hệ giữa các work item |
 
 Bỏ `-Yes` = chạy khô, chỉ in ra dự định. **Luôn chạy khô trước, cho người dùng xem, rồi mới chạy thật.**
 
