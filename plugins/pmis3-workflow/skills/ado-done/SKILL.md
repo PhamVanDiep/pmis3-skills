@@ -8,7 +8,12 @@ description: 'Đánh dấu work item Azure DevOps (bug, task, ticket, PBI/item�
 Bước cuối của quy trình `azure-devops`: chốt lại work item sau khi code đã làm. Skill này **chỉ lo
 việc chốt** — đọc/implement vẫn theo skill `pmis3-workflow:azure-devops`.
 
-Script: `../azure-devops/azdo.ps1` (Windows, PowerShell 5.1) hoặc `bash ../azure-devops/azdo.sh` (Linux/macOS/container, cần Node ≥ 18) — cùng lệnh, cờ, mã thoát (cùng plugin). Quy ước state trong `../azure-devops/azdo.config.json`.
+Script: `azdo.ps1` (Windows, PowerShell 5.1) hoặc `bash azdo.sh` (Linux/macOS/container, cần Node ≥ 18) trong thư mục skill `azure-devops` (`../azure-devops/` cạnh skill này) — cùng lệnh, cờ, mã thoát. Quy ước state trong `azdo.config.json` cùng thư mục.
+
+**Chạy script bằng đường dẫn tuyệt đối** (thư mục skill `azure-devops`) và **giữ cwd ở repo đang làm việc**
+(hoặc thư mục cha chứa các repo + `AZDO_PROJECT`). **Không `cd` vào thư mục skill** — project và kiểm tra push
+lấy theo cwd. Ví dụ dưới viết tắt `.zdo.ps1` / `bash azdo.sh`; thực tế dùng `& "<thư mục skill azure-devops>zdo.ps1"` /
+`bash "<thư mục skill azure-devops>/azdo.sh"`. Nội dung có khoảng trắng phải để trong nháy kép (thừa đối số → lỗi `Thừa đối số`).
 
 ## Đầu vào
 
@@ -57,7 +62,7 @@ hợp lệ với type không, sai thì in danh sách để chọn lại.
    Chạy ở **thư mục cha chứa nhiều repo** (không phải git repo): đặt `AZDO_PROJECT=<project>` (bash) /
    `$env:AZDO_PROJECT='<project>'` (PowerShell); `finish` Bug sẽ kiểm tra push mọi repo con cấp 1. Chạy từ thư mục
    con bên trong một repo thì báo "không tìm thấy git repo" — về gốc repo hoặc thư mục cha.
-   Bash: `bash azdo.sh finish <id> -Comment "<tổng kết>"` (nhiều dòng: `-Comment "$(cat <<'EOF' … EOF)"`).
+   Bash: `bash "<thư mục skill azure-devops>/azdo.sh" finish <id> -Comment "<tổng kết>"` (nhiều dòng: `-Comment "$(cat <<'EOF' … EOF)"`).
    Cho người dùng xem: state hiện tại → đích, comment, field sẽ ghi.
 4. **Chạy thật** với `-Yes` **chỉ sau khi người dùng đồng ý** (một câu "ok / done / commit đi" ở lượt
    trước là đủ). Comment và state ghi **cùng một lượt PATCH** nên không có tình trạng comment xong
@@ -88,7 +93,7 @@ hợp lệ với type không, sai thì in danh sách để chọn lại.
 ```powershell
 # "Done ticket" — ticket vừa làm là #123742
 .\azdo.ps1 finish 123742 -Comment @'
-Đã hiệu chỉnh chức năng công ty đối tác (frontend 9cf4f60, backend-quantri 5233d87, nhánh dev).
+Đã hiệu chỉnh chức năng công ty đối tác (frontend 9cf4f60, backend-quantri 5233d87, nhánh dev).<br>
 Còn lại: chạy scripts/alter_company_org_123742.sql, bump version pmis3-nguon-info-entity.
 '@
 # … người dùng đồng ý …
@@ -106,11 +111,12 @@ Còn lại: chạy scripts/alter_company_org_123742.sql, bump version pmis3-nguo
 Bash tương đương:
 
 ```bash
-bash azdo.sh finish 123742 -Comment "$(cat <<'EOF'
-Đã hiệu chỉnh chức năng ... Còn lại: chạy script SQL.
+bash "<thư mục skill azure-devops>/azdo.sh" finish 123742 -Comment "$(cat <<'EOF'
+Đã hiệu chỉnh chức năng ...<br>
+Còn lại: chạy script SQL.
 EOF
 )" -Yes
-bash azdo.sh state 123742 "In Progress" -Comment "Đang chờ BA xác nhận" -Yes
+bash "<thư mục skill azure-devops>/azdo.sh" state 123742 "In Progress" -Comment "Đang chờ BA xác nhận" -Yes
 ```
 
 Lưu ý: comment là HTML — viết `&lt;thẻ&gt;` thay vì `<thẻ>`. Chạy ở thư mục cha nhiều repo thì đặt

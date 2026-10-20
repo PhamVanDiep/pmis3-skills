@@ -14,6 +14,8 @@ const VALUE_FLAGS = {
 };
 const SWITCH_FLAGS = { html: 'html', all: 'all', crossproject: 'crossProject', yes: 'yes' };
 
+const ARG2_COMMANDS = ['state', 'create', 'update', 'comment'];
+
 export function parseArgs(argv) {
   const positional = [];
   const opts = {};
@@ -32,13 +34,22 @@ export function parseArgs(argv) {
       } else {
         throw new Error(`Cờ không hợp lệ: ${tok}`);
       }
+    } else if (tok.startsWith('--')) {
+      throw new Error(`Cờ không hợp lệ: ${tok} (cờ dùng một gạch, ví dụ -Yes)`);
     } else {
+      if (positional.length >= 3) {
+        throw new Error(`Thừa đối số: '${tok}' — nhớ đặt nội dung có khoảng trắng trong nháy kép`);
+      }
       positional.push(tok);
     }
   }
   const command = (positional[0] ?? '').toLowerCase();
   if (!COMMANDS.includes(command)) {
     throw new Error(`Command không hợp lệ: '${positional[0] ?? ''}'. Các lệnh hợp lệ: ${COMMANDS.join(', ')}`);
+  }
+  // Chỉ state/create/update/comment dùng Arg2; các lệnh khác mà còn đối số thứ ba là gõ thiếu nháy kép.
+  if (positional.length === 3 && !ARG2_COMMANDS.includes(command)) {
+    throw new Error(`Thừa đối số: '${positional[2]}' — nhớ đặt nội dung có khoảng trắng trong nháy kép`);
   }
   return { command, arg1: positional[1], arg2: positional[2], opts };
 }
@@ -222,8 +233,11 @@ export function resolveProject({ override, envProject, gitRemote, defaultProject
 // Lưu ý: regex gốc của ps1 cắt tại dấu chấm đầu tiên nên chỉ ra "Microsoft";
 // ở đây lấy trọn tên field (dấu chấm kết câu được bỏ).
 export function missingFieldFromError(msg) {
-  const m = /TF401320[^:]*:\s*Rule Error for field\s+([^\s]+?)\.?(?:\s|$)/.exec(msg ?? '');
-  return m ? m[1] : null;
+  const t = msg ?? '';
+  // Tên thân thiện có thể chứa khoảng trắng ("Resolved Reason"): lấy đến '. Error code' trước.
+  let m = /TF401320[^:]*:\s*Rule Error for field\s+(.+?)\.\s*Error code/.exec(t);
+  if (!m) m = /TF401320[^:]*:\s*Rule Error for field\s+([^\s]+?)\.?(?:\s|$)/.exec(t);
+  return m ? m[1].trim() : null;
 }
 
 export function formatIdentity(v) {
@@ -248,7 +262,14 @@ export function formatAdoDate(iso) {
 // ---------------------------------------------------------------- git push ---
 
 function gitOut(cwd, args) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  try {
+    return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  } catch (e) {
+    const first = String(e.stderr ?? '').split('\n').map((x) => x.trim()).find(Boolean);
+    const err = new Error(first || String(e.message).split('\n')[0]);
+    err.gitStderr = first || '';
+    throw err;
+  }
 }
 
 // Như Test-BranchPushed của ps1, cho một repo: không có upstream = chưa push.
@@ -306,7 +327,11 @@ export function checkPushed(cwd) {
       try { if (statSync(p).isDirectory() && existsSync(path.join(p, '.git'))) dirs.push(p); } catch { /* bỏ qua */ }
     }
   }
-  if (dirs.length === 0) return { ok: false, reason: `không tìm thấy git repo trong ${cwd}`, repos: [] };
+  if (dirs.length === 0) {
+    let why = '';
+    try { gitOut(cwd, ['rev-parse', '--show-toplevel']); } catch (e) { why = e.gitStderr ? ` (git: ${e.gitStderr})` : ''; }
+    return { ok: false, reason: `không tìm thấy git repo trong ${cwd}${why}`, repos: [] };
+  }
   const repos = dirs.map(checkOneRepo);
   const bad = repos.filter((r) => !r.ok);
   if (bad.length === 0) {

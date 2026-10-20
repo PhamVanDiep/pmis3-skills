@@ -80,12 +80,23 @@ function makeAdo(cfg) {
     // Đọc PAT trước khi gọi mạng: thiếu PAT thì ném lỗi ngay. PAT chỉ nằm trong header trong tiến trình.
     const auth = 'Basic ' + Buffer.from(':' + readPat(cfg), 'ascii').toString('base64');
     const headers = { Authorization: auth, Accept: 'application/json' };
-    const init = { method, headers };
+    const init = { method, headers, redirect: 'manual', signal: AbortSignal.timeout(60000) };
     if (body !== undefined && body !== null && body !== '') {
       headers['Content-Type'] = contentType;
       init.body = Buffer.from(typeof body === 'string' ? body : JSON.stringify(body), 'utf8'); // UTF-8 không BOM
     }
-    const res = await fetch(url, init);
+    let res;
+    try {
+      res = await fetch(url, init);
+    } catch (e) {
+      const why = e.cause?.code || e.cause?.message || (e.name === 'TimeoutError' ? 'quá 60 giây' : '');
+      throw new Error(`${e.message}${why ? ` (${why})` : ''}`);
+    }
+    if (res.status >= 300 && res.status < 400) {
+      let host = '';
+      try { host = new URL(res.headers.get('location') ?? '', url).host; } catch { /* bỏ qua */ }
+      throw new AdoError(res.status, `Azure DevOps chuyển hướng HTTP ${res.status}${host ? ` tới ${host}` : ''} — kiểm tra AZDO_COLLECTION_URL / đăng nhập`);
+    }
     const raw = await res.text();
     if (!res.ok) {
       let msg = raw;
@@ -559,5 +570,5 @@ async function main(argv) {
 main(process.argv.slice(2)).catch((e) => {
   if (e instanceof ExitCode) { process.exitCode = e.code; return; }
   process.stderr.write(`Lỗi: ${e.message}\n`);
-  process.exit(1);
+  process.exitCode = 1;
 });

@@ -47,13 +47,19 @@ Hai script cùng thư mục với SKILL.md này, **cùng lệnh, cùng cờ, cù
 | Windows | `azdo.ps1` (PowerShell 5.1) |
 | Linux / macOS / container | `bash azdo.sh` (cần Node ≥ 18; `azdo.sh` chỉ là lớp bọc gọi `azdo.mjs`) |
 
+**Chạy script bằng đường dẫn tuyệt đối** (thư mục chứa skill này), và **giữ cwd ở repo đang làm việc**
+(hoặc thư mục cha chứa các repo + `AZDO_PROJECT`) — script lấy project và kiểm tra push theo cwd.
+**Không `cd` vào thư mục skill.** Ví dụ: `bash "<thư mục skill>/azdo.sh" mine` /
+`& "<thư mục skill>zdo.ps1" mine`. Nội dung có khoảng trắng phải đặt trong nháy kép
+(thừa đối số thì script báo lỗi `Thừa đối số`).
+
 Cờ giữ kiểu PowerShell (một gạch, không phân biệt hoa thường) ở cả hai script, ví dụ
-`bash azdo.sh finish 123 -Comment "..." -Yes`. Các ví dụ dưới đây viết bằng `azdo.ps1`; trên bash thay
-`azdo.ps1` bằng `bash azdo.sh`.
+`bash "<thư mục skill>/azdo.sh" finish 123 -Comment "..." -Yes`. Các ví dụ dưới đây viết tắt `azdo.ps1`
+(đường dẫn đầy đủ: `& "<thư mục skill>zdo.ps1"`); trên bash thay bằng `bash "<thư mục skill>/azdo.sh"`.
 
 | Lệnh | Việc |
 |---|---|
-| `azdo.ps1 whoami` (bash: `bash azdo.sh whoami`) | Kiểm tra kết nối + xác định đang đăng nhập bằng ai |
+| `azdo.ps1 whoami` (bash: `bash "<thư mục skill>/azdo.sh" whoami`) | Kiểm tra kết nối + xác định đang đăng nhập bằng ai |
 | `azdo.ps1 mine` | Work item gán cho tôi, trong project của repo hiện tại |
 | `azdo.ps1 mine -All` | Work item gán cho tôi ở **mọi project** trong collection |
 | `azdo.ps1 show <id>` | Chi tiết: mô tả, repro steps, acceptance criteria, thảo luận, đính kèm |
@@ -72,7 +78,7 @@ Bỏ `-Yes` = chạy khô, chỉ in ra dự định. **Luôn chạy khô trướ
 
 ### Tạo work item
 
-Bash (tương đương): `bash azdo.sh create Task "T1 — Nghiên cứu X" -DescriptionFile ./t1.md -Tags "wayfinder:research" -Parent 122698 -Yes`
+Bash (tương đương): `bash "<thư mục skill>/azdo.sh" create Task "T1 — Nghiên cứu X" -DescriptionFile ./t1.md -Tags "wayfinder:research" -Parent 122698 -Yes`
 
 ```powershell
 # Mô tả dài thì để trong file Markdown, script tự chuyển sang HTML.
@@ -116,7 +122,7 @@ Output là text thường nên **lọc được**. Danh sách dài thì lọc th
 ```
 
 ```bash
-bash azdo.sh mine -All | grep -E '\s(Bug|Ticket)\s'
+bash "<thư mục skill>/azdo.sh" mine -All | grep -E '\s(Bug|Ticket)\s'
 ```
 
 ## Phạm vi project — QUAN TRỌNG
@@ -126,7 +132,7 @@ bash azdo.sh mine -All | grep -E '\s(Bug|Ticket)\s'
 
 Thứ tự xác định project: cờ `-Project` → biến môi trường **`AZDO_PROJECT`** → `git remote` →
 `defaultProject` trong `azdo.config.json`. `AZDO_PROJECT` dùng khi chạy ở **thư mục cha chứa nhiều
-repo** (không phải git repo nên không có remote), ví dụ `AZDO_PROJECT=PMIS3-NGUON bash azdo.sh mine`.
+repo** (không phải git repo nên không có remote), ví dụ `AZDO_PROJECT=PMIS3-NGUON bash "<thư mục skill>/azdo.sh" mine`.
 Khi đặt, nó cũng là "project của repo" cho guard chặn ghi xuyên project bên dưới.
 
 Một collection có nhiều project (`CSDLMT`, `PMIS3-NGUON`, `PMIS3-OMS`...) và ID work item

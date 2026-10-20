@@ -555,8 +555,8 @@ function Invoke-StateChange {
     }
     catch {
         $msg = $_.Exception.Message
-        if ($msg -match 'TF401320[^:]*:\s*Rule Error for field\s+([^\s]+?)\.?(?:\s|$)') {
-            $missing = $Matches[1]
+        if ($msg -match 'TF401320[^:]*:\s*Rule Error for field\s+(.+?)\.\s*Error code' -or $msg -match 'TF401320[^:]*:\s*Rule Error for field\s+([^\s]+?)\.?(?:\s|$)') {
+            $missing = $Matches[1].Trim()
             Write-Output ""
             Write-Output "DỪNG: chuyển sang '$($Fields['System.State'])' đòi field '$missing'."
             Write-Output "Chạy lại kèm -Field ""$missing=<giá trị>"" (hỏi người dùng nếu không suy ra được)."

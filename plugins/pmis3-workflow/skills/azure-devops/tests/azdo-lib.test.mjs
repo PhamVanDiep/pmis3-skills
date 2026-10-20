@@ -159,7 +159,8 @@ test('checkPushed: không có repo nào', () => {
   try {
     const res = checkPushed(home);
     assert.equal(res.ok, false);
-    assert.equal(res.reason, `không tìm thấy git repo trong ${home}`);
+    assert.ok(res.reason.startsWith(`không tìm thấy git repo trong ${home}`));
+    assert.match(res.reason, /\(git: .+\)$/); // kèm dòng đầu stderr của git
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
 
@@ -178,4 +179,16 @@ test('checkPushed: cwd nằm trong repo ngoài che các repo con -> vẫn quét 
     assert.equal(res.ok, false);
     assert.match(res.reason, /^b: còn 1 commit chưa push/);
   } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+test('parseArgs: thừa đối số vị trí và cờ -- bị từ chối', () => {
+  assert.throws(() => parseArgs(['comment', '123', 'Đã', 'sửa', 'lỗi', '-Yes']), /Thừa đối số: 'sửa'.*nháy kép/);
+  assert.throws(() => parseArgs(['finish', '1', '-Comment', 'Đã', 'sửa', '-Yes']), /Thừa đối số: 'sửa'/);
+  assert.throws(() => parseArgs(['state', '1', 'Done', '--yes']), /Cờ không hợp lệ: --yes/);
+});
+
+test('missingFieldFromError: tên thân thiện có khoảng trắng', () => {
+  assert.equal(missingFieldFromError('TF401320: Rule Error for field Resolved Reason. Error code: Required'), 'Resolved Reason');
+  assert.equal(missingFieldFromError('TF401320: Rule Error for field Microsoft.VSTS.Common.ResolvedReason. Error code: Required'), 'Microsoft.VSTS.Common.ResolvedReason');
+  assert.equal(missingFieldFromError('TF401320: Rule Error for field Foo'), 'Foo');
 });

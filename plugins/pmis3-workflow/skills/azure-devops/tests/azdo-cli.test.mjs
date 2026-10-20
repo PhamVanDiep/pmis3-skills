@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import net from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { startMock } from './mock-ado.mjs';
 
@@ -53,6 +54,7 @@ before(async () => {
     { method: 'GET', match: (p) => p.endsWith('/Bug/states'), body: { value: [{ name: 'New', category: 'Proposed' }, { name: 'Committed', category: 'InProgress' }] } },
     { method: 'GET', match: (p) => p.endsWith('/Ticket/fields'),
       body: { value: [{ referenceName: 'System.Title', name: 'Title', alwaysRequired: true }, { referenceName: 'X.Y', name: 'Y', alwaysRequired: false }] } },
+    { method: 'GET', match: (p) => p.endsWith('/workitems/302'), status: 302, headers: { Location: 'https://login.example.com/sso?x=secret' }, body: '' },
     { method: 'GET', match: (p) => p.endsWith('/workitems/401'), status: 401, contentType: 'text/html', body: '<html><body><h1>Unauthorized</h1></body></html>' },
   ]);
 });
@@ -340,4 +342,21 @@ test('finish: allowedFrom không phân biệt hoa thường', async () => {
   const r = await run(['finish', '107']);
   assert.notEqual(r.code, 2, r.stdout + r.stderr);
   assert.equal(r.code, 3, r.stdout + r.stderr);
+});
+
+test('3xx không được follow: báo lỗi có status và host', async () => {
+  const r = await run(['show', '302'], { AZDO_PROJECT: 'KTAT' });
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /HTTP 302 tới login\.example\.com/);
+  assert.ok(!r.stderr.includes('secret'));
+});
+
+test('lỗi mạng: hiện nguyên nhân (ECONNREFUSED)', async () => {
+  const srv = net.createServer();
+  await new Promise((res) => srv.listen(0, '127.0.0.1', res));
+  const { port } = srv.address();
+  await new Promise((res) => srv.close(res));
+  const r = await run(['whoami'], { AZDO_COLLECTION_URL: `http://127.0.0.1:${port}/EVNCollection` });
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /fetch failed \(ECONNREFUSED\)/);
 });

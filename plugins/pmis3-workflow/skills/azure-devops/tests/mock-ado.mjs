@@ -20,7 +20,7 @@ export function startMock(routes) {
         res.end(JSON.stringify({ message: `mock: no route ${req.method} ${req.url}` }));
         return;
       }
-      res.writeHead(r.status ?? 200, { 'Content-Type': r.contentType ?? 'application/json' });
+      res.writeHead(r.status ?? 200, { 'Content-Type': r.contentType ?? 'application/json', ...(r.headers ?? {}) });
       res.end(typeof r.body === 'string' ? r.body : JSON.stringify(r.body));
     });
   });
