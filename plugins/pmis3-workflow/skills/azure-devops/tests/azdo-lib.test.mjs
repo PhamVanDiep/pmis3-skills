@@ -1,11 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
   parseArgs, markdownToAdoHtml, htmlToText, parseFieldArgs, splitIdList, REL_MAP,
-  resolveProject, missingFieldFromError, formatIdentity, formatAdoDate,
+  resolveProject, missingFieldFromError, formatIdentity, formatAdoDate, checkPushed,
 } from '../azdo-lib.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -94,4 +96,69 @@ test('formatAdoDate dd/MM/yyyy HH:mm giờ local', () => {
 test('htmlToText', () => {
   assert.equal(htmlToText('<p>A &amp; B</p><ul><li>x</li><li>y</li></ul><script>z</script>'), 'A & B\n\n  - x\n\n  - y');
   assert.equal(htmlToText(''), '');
+});
+
+// ------------------------------------------------------------- checkPushed ---
+
+function gitTmp() {
+  const home = mkdtempSync(join(tmpdir(), 'azdo-cp-'));
+  const env = { ...process.env, HOME: home, USERPROFILE: home, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: join(home, 'nocfg') };
+  const git = (cwd, ...a) => execFileSync('git', a, { cwd, env, stdio: 'pipe' });
+  const mk = (parent, name, { remote = true, ahead = false } = {}) => {
+    const dir = join(parent, name);
+    mkdirSync(dir, { recursive: true });
+    git(dir, 'init', '-b', 'main');
+    git(dir, 'config', 'user.name', 't');
+    git(dir, 'config', 'user.email', 't@t');
+    writeFileSync(join(dir, 'a'), '1');
+    git(dir, 'add', '.');
+    git(dir, 'commit', '-m', 'c');
+    if (remote) {
+      const bare = join(parent, name + '.git');
+      git(parent, 'init', '--bare', '-b', 'main', bare);
+      git(dir, 'remote', 'add', 'origin', bare);
+      git(dir, 'push', '-u', 'origin', 'main');
+      if (ahead) { writeFileSync(join(dir, 'b'), '2'); git(dir, 'add', '.'); git(dir, 'commit', '-m', 'd'); }
+    }
+    return dir;
+  };
+  return { home, mk };
+}
+
+test('checkPushed: repo đã push -> ok', () => {
+  const { home, mk } = gitTmp();
+  try {
+    const d = mk(home, 'r');
+    const res = checkPushed(d);
+    assert.equal(res.ok, true);
+    assert.equal(res.repos.length, 1);
+    assert.match(res.repos[0].reason, /đã push đầy đủ lên origin\/main/);
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+test('checkPushed: commit chưa push và không có upstream -> not ok, mỗi repo một dòng', () => {
+  const { home, mk } = gitTmp();
+  try {
+    const ws = join(home, 'ws');
+    mkdirSync(ws);
+    mk(ws, 'good');
+    mk(ws, 'ahead', { ahead: true });
+    mk(ws, 'noup', { remote: false });
+    const res = checkPushed(ws);
+    assert.equal(res.ok, false);
+    assert.equal(res.repos.length, 3);
+    assert.match(res.reason, /ahead.*còn 1 commit chưa push/);
+    assert.match(res.reason, /noup.*chưa có upstream/);
+    assert.ok(!res.reason.includes('good'));
+    assert.equal(res.reason.split('\n').length, 2);
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+test('checkPushed: không có repo nào', () => {
+  const home = mkdtempSync(join(tmpdir(), 'azdo-cp-'));
+  try {
+    const res = checkPushed(home);
+    assert.equal(res.ok, false);
+    assert.equal(res.reason, `không tìm thấy git repo trong ${home}`);
+  } finally { rmSync(home, { recursive: true, force: true }); }
 });

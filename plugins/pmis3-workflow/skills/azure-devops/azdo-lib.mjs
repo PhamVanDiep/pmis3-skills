@@ -1,5 +1,8 @@
-// Logic thuần (không I/O) của azdo.ps1, port sang Node để chạy được trên Linux.
-// Không phụ thuộc gói ngoài.
+// Logic của azdo.ps1, port sang Node để chạy được trên Linux.
+// Hầu hết là hàm thuần; chỉ checkPushed chạy git. Không phụ thuộc gói ngoài.
+import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import path from 'node:path';
 
 export const COMMANDS = ['whoami', 'mine', 'show', 'states', 'required', 'comment', 'state', 'finish', 'create', 'update', 'link'];
 
@@ -240,4 +243,62 @@ export function formatAdoDate(iso) {
   if (Number.isNaN(d.getTime())) return String(iso);
   const p = (n) => String(n).padStart(2, '0');
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// ---------------------------------------------------------------- git push ---
+
+function gitOut(cwd, args) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+}
+
+// Như Test-BranchPushed của ps1, cho một repo: không có upstream = chưa push.
+function checkOneRepo(dir) {
+  const res = { path: dir, branch: '', ok: false, reason: '' };
+  try {
+    const branch = gitOut(dir, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    res.branch = branch;
+    let upstream = '';
+    try { upstream = gitOut(dir, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']); } catch { /* không có upstream */ }
+    if (!upstream) {
+      res.reason = `nhánh '${branch}' chưa có upstream (chưa push lần nào)`;
+      return res;
+    }
+    const ahead = Number(gitOut(dir, ['rev-list', '--count', `${upstream}..HEAD`]));
+    if (ahead > 0) {
+      res.reason = `còn ${ahead} commit chưa push trên nhánh '${branch}'`;
+      return res;
+    }
+    res.ok = true;
+    res.reason = `nhánh '${branch}' đã push đầy đủ lên ${upstream}`;
+  } catch (e) {
+    res.reason = `không kiểm tra được trạng thái git: ${String(e.message).split('\n')[0]}`;
+  }
+  return res;
+}
+
+function isGitRepo(dir) {
+  try { return gitOut(dir, ['rev-parse', '--is-inside-work-tree']) === 'true'; } catch { return false; }
+}
+
+// cwd là git repo -> kiểm tra repo đó; không thì quét thư mục con cấp 1 có .git.
+export function checkPushed(cwd) {
+  let dirs;
+  if (isGitRepo(cwd)) {
+    dirs = [cwd];
+  } else {
+    dirs = [];
+    let names = [];
+    try { names = readdirSync(cwd).sort(); } catch { /* không đọc được */ }
+    for (const n of names) {
+      const p = path.join(cwd, n);
+      try { if (statSync(p).isDirectory() && existsSync(path.join(p, '.git'))) dirs.push(p); } catch { /* bỏ qua */ }
+    }
+  }
+  if (dirs.length === 0) return { ok: false, reason: `không tìm thấy git repo trong ${cwd}`, repos: [] };
+  const repos = dirs.map(checkOneRepo);
+  const bad = repos.filter((r) => !r.ok);
+  if (bad.length === 0) {
+    return { ok: true, reason: repos.map((r) => `${path.basename(r.path)}: ${r.reason}`).join('\n'), repos };
+  }
+  return { ok: false, reason: bad.map((r) => `${path.basename(r.path)}: ${r.reason}`).join('\n'), repos };
 }
