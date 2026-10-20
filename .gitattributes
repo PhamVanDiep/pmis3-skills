@@ -1,3 +1,6 @@
 # Toàn bộ repo là text. Ép LF để hook chạy được bằng bash trên mọi hệ điều hành
 # (CRLF sẽ làm hỏng shebang và phần bash của run-hook.cmd).
 * text=auto eol=lf
+*.sh text eol=lf
+*.mjs text eol=lf
+plugins/pmis3-workflow/skills/azure-devops/tests/fixtures/** text eol=lf
