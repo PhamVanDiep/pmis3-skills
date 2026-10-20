@@ -64,7 +64,7 @@ export function htmlDecode(s) {
       if (dec !== undefined) return String.fromCodePoint(Number(dec));
       if (hex !== undefined) return String.fromCodePoint(parseInt(hex, 16));
     } catch { return m; }
-    return name in NAMED ? NAMED[name] : m;
+    return Object.hasOwn(NAMED, name) ? NAMED[name] : m;
   });
 }
 
