@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   parseArgs, htmlToText, markdownToAdoHtml, parseFieldArgs, splitIdList, REL_MAP, missingFieldFromError,
   resolveProject, formatIdentity, formatAdoDate, checkPushed, eqi,
+  resolveCollectionUrl, collectionNameOf, rulesFor,
 } from './azdo-lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -39,8 +40,9 @@ function readConfig() {
   return JSON.parse(readFileSync(p, 'utf8').replace(/^﻿/, ''));
 }
 
+// Collection đang làm việc: AZDO_COLLECTION_URL > git remote > collectionUrl (xem resolveCollectionUrl).
 function collectionUrl(cfg) {
-  return String(process.env.AZDO_COLLECTION_URL || cfg.collectionUrl || '').replace(/\/+$/, '');
+  return resolveCollectionUrl({ envUrl: process.env.AZDO_COLLECTION_URL, gitRemote: gitRemote(), cfg });
 }
 
 // AZDO_CREDENTIALS_FILES (danh sách phân cách bởi path.delimiter) ghi đè danh sách mặc định — dùng cho test.
@@ -129,6 +131,8 @@ async function main(argv) {
   const { command, arg1, arg2, opts } = parseArgs(argv);
   const cfg = readConfig();
   const collection = collectionUrl(cfg);
+  // closedStates / workflow của collection này (collections.<tên> trong config, ghép với mặc định).
+  const rules = rulesFor(cfg, collectionNameOf(collection));
   const apiVer = cfg.apiVersion ?? '6.0';
   // repoProject = project hiệu lực (-Project > env > remote > default); gitProject = project của repo (chặn tạo xuyên project).
   const { project: repoProject, repoProject: gitProject } = resolveProject({
@@ -244,7 +248,7 @@ async function main(argv) {
     }
 
     case 'mine': {
-      const closed = (cfg.closedStates ?? []).map((s) => `'${s}'`).join(',');
+      const closed = rules.closedStates.map((s) => `'${s}'`).join(',');
       const where = `[System.AssignedTo] = @Me AND [System.State] NOT IN (${closed})`;
       let ids;
       let scope;
@@ -520,7 +524,7 @@ async function main(argv) {
       out(`State hiện tại: ${cur}`);
       checkScopeWrite(itemProject, arg1);
 
-      const rule = Object.hasOwn(cfg.workflow ?? {}, type) ? cfg.workflow[type] : null;
+      const rule = Object.hasOwn(rules.workflow, type) ? rules.workflow[type] : null;
       if (!rule) {
         out();
         out(`DỪNG: type '${type}' không có quy ước tự động. Phải hỏi người dùng chọn state.`);

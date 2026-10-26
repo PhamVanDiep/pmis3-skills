@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path';
 import {
   parseArgs, markdownToAdoHtml, htmlToText, parseFieldArgs, splitIdList, REL_MAP,
   resolveProject, missingFieldFromError, formatIdentity, formatAdoDate, checkPushed,
+  collectionFromRemote, resolveCollectionUrl, rulesFor, serverUrlOf, collectionNameOf,
 } from '../azdo-lib.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -191,4 +192,47 @@ test('missingFieldFromError: tên thân thiện có khoảng trắng', () => {
   assert.equal(missingFieldFromError('TF401320: Rule Error for field Resolved Reason. Error code: Required'), 'Resolved Reason');
   assert.equal(missingFieldFromError('TF401320: Rule Error for field Microsoft.VSTS.Common.ResolvedReason. Error code: Required'), 'Microsoft.VSTS.Common.ResolvedReason');
   assert.equal(missingFieldFromError('TF401320: Rule Error for field Foo'), 'Foo');
+});
+
+const CFG = {
+  collectionUrl: 'https://devops.evn.com.vn/EVNCollection',
+  closedStates: ['Done', 'Removed'],
+  workflow: {
+    Bug: { allowedFrom: ['New', 'Reopened'], doneState: 'Committed' },
+    Task: { allowedFrom: ['To Do'], doneState: 'Done' },
+  },
+  collections: {
+    QUANTRI: { workflow: { Bug: { allowedFrom: ['New', 'Reopen'], doneState: 'Committed' } } },
+    KTVH: { closedStates: ['Done', 'Closed'] },
+  },
+};
+
+test('collectionFromRemote: https, ssh, URL rút gọn, không phải Azure DevOps', () => {
+  assert.equal(collectionFromRemote('https://devops.evn.com.vn/QUANTRI/PMAT/_git/pmat-be'), 'QUANTRI');
+  assert.equal(collectionFromRemote('https://u@devops.evn.com.vn/EVNCollection/PMIS3-NGUON/_git/x'), 'EVNCollection');
+  assert.equal(collectionFromRemote('ssh://devops.evn.com.vn:22/KTVH/ETMS/_git/etms'), 'KTVH');
+  assert.equal(collectionFromRemote('https://devops.evn.com.vn/tfs/QUANTRI/PMAT/_git/x'), 'QUANTRI');
+  assert.equal(collectionFromRemote('https://devops.evn.com.vn/QUANTRI/_git/PMAT'), 'QUANTRI');
+  assert.equal(collectionFromRemote('git@github.com:PhamVanDiep/pmis3-skills.git'), null);
+  assert.equal(collectionFromRemote('https://github.com/a/b.git'), null);
+  assert.equal(collectionFromRemote(''), null);
+});
+
+test('resolveCollectionUrl: env > remote (ghép với server của config) > config', () => {
+  const remote = 'https://evil.example/QUANTRI/PMAT/_git/x';
+  assert.equal(resolveCollectionUrl({ envUrl: 'http://127.0.0.1:5/Fake/', gitRemote: remote, cfg: CFG }), 'http://127.0.0.1:5/Fake');
+  assert.equal(resolveCollectionUrl({ gitRemote: remote, cfg: CFG }), 'https://devops.evn.com.vn/QUANTRI');
+  assert.equal(resolveCollectionUrl({ gitRemote: '', cfg: CFG }), 'https://devops.evn.com.vn/EVNCollection');
+  assert.equal(serverUrlOf({ ...CFG, serverUrl: 'https://x/tfs/' }), 'https://x/tfs');
+  assert.equal(collectionNameOf('https://devops.evn.com.vn/QUANTRI/'), 'QUANTRI');
+});
+
+test('rulesFor: ghép workflow theo type, closedStates riêng hoặc mặc định, không phân biệt hoa thường', () => {
+  const q = rulesFor(CFG, 'quantri');
+  assert.deepEqual(q.workflow.Bug.allowedFrom, ['New', 'Reopen']);
+  assert.deepEqual(q.workflow.Task.allowedFrom, ['To Do']);
+  assert.deepEqual(q.closedStates, ['Done', 'Removed']);
+  assert.deepEqual(rulesFor(CFG, 'KTVH').closedStates, ['Done', 'Closed']);
+  assert.deepEqual(rulesFor(CFG, 'EVNCollection').workflow, CFG.workflow);
+  assert.deepEqual(rulesFor({ closedStates: ['Done'], workflow: {} }, 'X'), { closedStates: ['Done'], workflow: {} });
 });

@@ -223,6 +223,63 @@ function projectFromRemote(remote) {
   try { return decodeURIComponent(m[1]); } catch { return m[1]; }
 }
 
+// ------------------------------------------------------------ collection ----
+// Một server Azure DevOps có nhiều collection: https://host/{Collection}/{Project}/_git/{Repo}.
+// collectionUrl trong config là collection mặc định; collections.<tên> khai báo quy tắc riêng.
+
+const trimSlash = (s) => String(s ?? '').replace(/\/+$/, '');
+
+// Gốc server: serverUrl trong config, nếu không có thì thư mục cha của collectionUrl.
+export function serverUrlOf(cfg) {
+  if (cfg?.serverUrl) return trimSlash(cfg.serverUrl);
+  const u = trimSlash(cfg?.collectionUrl);
+  return u.slice(0, u.lastIndexOf('/'));
+}
+
+// Tên collection = đoạn cuối của URL collection.
+export function collectionNameOf(url) {
+  const u = trimSlash(url);
+  const seg = u.slice(u.lastIndexOf('/') + 1);
+  try { return decodeURIComponent(seg); } catch { return seg; }
+}
+
+// Tên collection trong git remote: đoạn đứng trước /{Project}/_git/ (https hoặc ssh://host:22/...),
+// hoặc trước /_git/ khi URL rút gọn (repo trùng tên project). Không phải remote Azure DevOps -> null.
+export function collectionFromRemote(remote) {
+  const s = String(remote ?? '').trim();
+  const m = /^[a-z][a-z0-9+.-]*:\/\/[^/]+(\/.*)$/i.exec(s);
+  if (!m) return null;
+  const segs = m[1].split('/').filter(Boolean);
+  const i = segs.indexOf('_git');
+  if (i < 1) return null;
+  const seg = i >= 2 ? segs[i - 2] : segs[0];
+  let name = seg;
+  try { name = decodeURIComponent(seg); } catch { /* giữ nguyên */ }
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(name) ? name : null;
+}
+
+// Thứ tự: AZDO_COLLECTION_URL -> collection trong git remote (luôn ghép với server trong config, không
+// bao giờ gửi PAT tới host của remote) -> collectionUrl trong config.
+export function resolveCollectionUrl({ envUrl, gitRemote, cfg } = {}) {
+  if (envUrl && String(envUrl).trim()) return trimSlash(String(envUrl).trim());
+  const name = collectionFromRemote(gitRemote);
+  if (name) return `${serverUrlOf(cfg)}/${encodeURIComponent(name)}`;
+  return trimSlash(cfg?.collectionUrl);
+}
+
+// Quy tắc hiệu lực của một collection: closedStates riêng nếu có (không thì mặc định); workflow mặc
+// định, type nào khai báo riêng thì thay type đó. Khoá trong collections không phân biệt hoa thường.
+export function rulesFor(cfg, collectionName) {
+  const lc = String(collectionName ?? '').toLowerCase();
+  const all = cfg?.collections ?? {};
+  const key = Object.keys(all).find((k) => k.toLowerCase() === lc);
+  const own = key ? all[key] : null;
+  return {
+    closedStates: own?.closedStates ?? cfg?.closedStates ?? [],
+    workflow: { ...(cfg?.workflow ?? {}), ...(own?.workflow ?? {}) },
+  };
+}
+
 // Thứ tự: -Project > AZDO_PROJECT > git remote > defaultProject.
 // repoProject (để chặn xuyên project) = AZDO_PROJECT, nếu không có thì git remote, rồi defaultProject.
 export function resolveProject({ override, envProject, gitRemote, defaultProject } = {}) {

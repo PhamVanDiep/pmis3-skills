@@ -44,5 +44,26 @@
       "activeState": "In Progress",
       "requirePush": false
     }
+  },
+
+  "_collections": "Quy tắc riêng theo tên collection (không phân biệt hoa thường). closedStates riêng thay hẳn closedStates mặc định; workflow ghép theo type: type khai báo ở đây thay type cùng tên ở trên, type khác dùng mặc định. Collection đang làm việc: AZDO_COLLECTION_URL, nếu không có thì đoạn {Collection} trong git remote (https://host/{Collection}/{Project}/_git/{Repo}), cuối cùng là collectionUrl.",
+
+  "collections": {
+    "QUANTRI": {
+      "workflow": {
+        "Bug": {
+          "allowedFrom": ["New", "In Progress", "Reopen"],
+          "doneState": "Committed",
+          "activeState": "In Progress",
+          "requirePush": true
+        },
+        "Product Backlog Item": {
+          "allowedFrom": ["New", "Approved", "In Progress", "Designed", "Committed", "Ready", "Reopen"],
+          "doneState": "Done",
+          "activeState": "In Progress",
+          "requirePush": false
+        }
+      }
+    }
   }
 }

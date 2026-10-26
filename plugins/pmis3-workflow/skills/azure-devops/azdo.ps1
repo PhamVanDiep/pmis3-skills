@@ -388,6 +388,57 @@ function Format-Identity {
 
 # Project của repo hiện tại. Thứ tự: -Project > env AZDO_PROJECT > git remote (.../{Project}/_git/{Repo}) > defaultProject.
 # $Override rỗng thì bỏ qua cờ -Project (dùng để lấy "project của repo" cho việc chặn ghi xuyên project).
+# Một server có nhiều collection (https://host/{Collection}/{Project}/_git/{Repo}); cùng ngữ nghĩa
+# serverUrlOf / collectionFromRemote / resolveCollectionUrl / rulesFor trong azdo-lib.mjs.
+function Get-ServerUrl {
+    param($Cfg)
+    $s = [string](Get-Val $Cfg 'serverUrl' '')
+    if ($s) { return $s.TrimEnd('/') }
+    $u = ([string](Get-Val $Cfg 'collectionUrl' '')).TrimEnd('/')
+    return $u.Substring(0, [Math]::Max(0, $u.LastIndexOf('/')))
+}
+
+function Get-RemoteCollection {
+    $remote = ''
+    try { $remote = ((& git config --get remote.origin.url 2>$null) -join '').Trim() } catch { }
+    if ($remote -notmatch '^[a-zA-Z][a-zA-Z0-9+.-]*://[^/]+(/.*)$') { return $null }
+    $segs = @($Matches[1].Split('/') | Where-Object { $_ })
+    $i = [Array]::IndexOf($segs, '_git')
+    if ($i -lt 1) { return $null }
+    $seg = if ($i -ge 2) { $segs[$i - 2] } else { $segs[0] }
+    $name = [uri]::UnescapeDataString($seg)
+    if ($name -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$') { return $name }
+    return $null
+}
+
+# AZDO_COLLECTION_URL -> collection trong git remote (ghép với server của config, không gửi PAT tới host
+# của remote) -> collectionUrl trong config.
+function Resolve-AdoCollection {
+    param($Cfg)
+    if ($env:AZDO_COLLECTION_URL) { return $env:AZDO_COLLECTION_URL.Trim().TrimEnd('/') }
+    $name = Get-RemoteCollection
+    if ($name) { return "$(Get-ServerUrl $Cfg)/$([uri]::EscapeDataString($name))" }
+    return ([string](Get-Val $Cfg 'collectionUrl')).TrimEnd('/')
+}
+
+# closedStates riêng của collection nếu có (không thì mặc định); workflow mặc định, type khai báo riêng thay type đó.
+function Get-CollectionRules {
+    param($Cfg, [string]$Name)
+    $own = $null
+    $all = Get-Val $Cfg 'collections'
+    if ($all -is [System.Collections.IDictionary]) {
+        foreach ($k in @($all.Keys)) { if ($k -ieq $Name) { $own = $all[$k] } }
+    }
+    $workflow = @{}
+    $base = Get-Val $Cfg 'workflow'
+    if ($base -is [System.Collections.IDictionary]) { foreach ($k in @($base.Keys)) { $workflow[$k] = $base[$k] } }
+    $ownWf = Get-Val $own 'workflow'
+    if ($ownWf -is [System.Collections.IDictionary]) { foreach ($k in @($ownWf.Keys)) { $workflow[$k] = $ownWf[$k] } }
+    $closed = Get-Val $own 'closedStates'
+    if ($null -eq $closed) { $closed = Get-Val $Cfg 'closedStates' @() }
+    return @{ ClosedStates = @($closed); Workflow = $workflow }
+}
+
 function Resolve-AdoProject {
     param($Cfg, [string]$Override)
     if ($Override) { return $Override }
@@ -466,7 +517,8 @@ function Test-BranchPushed {
 # ------------------------------------------------------------ ngữ cảnh ------
 
 $cfg = Read-AdoConfig
-$collection = (Get-Val $cfg 'collectionUrl').TrimEnd('/')
+$collection = Resolve-AdoCollection $cfg
+$rules = Get-CollectionRules $cfg ([uri]::UnescapeDataString($collection.Substring($collection.LastIndexOf('/') + 1)))
 $apiVer = Get-Val $cfg 'apiVersion' '6.0'
 $repoProject = Resolve-AdoProject $cfg $Project
 # Project suy từ git remote, KHÔNG tính cờ -Project. Dùng để chặn ghi xuyên project
@@ -711,7 +763,7 @@ switch ($Command) {
     }
 
     'mine' {
-        $closed = (Get-Val $cfg 'closedStates' @()) | ForEach-Object { "'$_'" }
+        $closed = $rules.ClosedStates | ForEach-Object { "'$_'" }
         $where = "[System.AssignedTo] = @Me AND [System.State] NOT IN ($($closed -join ','))"
         if ($All) {
             $wiql = "SELECT [System.Id] FROM WorkItems WHERE $where ORDER BY [System.ChangedDate] DESC"
@@ -1031,7 +1083,7 @@ switch ($Command) {
         Write-Output "State hiện tại: $cur"
         if (-not (Test-ProjectScope -ItemProject $itemProject -Id $Arg1 -IsWrite)) { exit 4 }
 
-        $rule = Get-Val (Get-Val $cfg 'workflow') $type
+        $rule = Get-Val $rules.Workflow $type
         if (-not $rule) {
             Write-Output ""
             Write-Output "DỪNG: type '$type' không có quy ước tự động. Phải hỏi người dùng chọn state."

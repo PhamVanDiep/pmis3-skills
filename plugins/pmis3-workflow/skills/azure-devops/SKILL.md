@@ -165,6 +165,20 @@ Khai báo trong `azdo.config.json`. Chỉ tự đổi khi state **hiện tại**
 
 Ý nghĩa: Bug xong → **Committed** = code đã push, chờ kiểm thử; Ticket / Item xong → **Done**.
 
+### Nhiều collection
+
+Một người có thể được giao việc ở nhiều collection (`EVNCollection`, `QUANTRI`, `KTVH`…) trên cùng
+server `https://devops.evn.com.vn`. Collection đang làm việc lấy theo thứ tự: biến môi trường
+**`AZDO_COLLECTION_URL`** (PMIS Auto Work đặt cho từng run) → đoạn `{Collection}` trong `git remote`
+(`https://devops.evn.com.vn/{Collection}/{Project}/_git/{Repo}`) → `collectionUrl` trong `azdo.config.json`.
+Collection lấy từ remote luôn được ghép với server trong config (PAT không bao giờ gửi tới host khác).
+`whoami` in ra collection đang dùng.
+
+Quy tắc trạng thái có thể khác nhau giữa các collection: khai báo trong `collections.<Tên collection>`
+của `azdo.config.json`. `closedStates` riêng thay hẳn danh sách mặc định; `workflow` ghép theo type
+(type khai báo riêng thay type cùng tên, các type khác dùng bảng trên). Ví dụ `QUANTRI`: Bug tự xử lý
+khi đang ở New · In Progress · **Reopen** (collection này không có state Reopened).
+
 `finish` tự kiểm tra và **thoát với mã lỗi** khi không được phép:
 
 | Exit | Nghĩa | Phải làm gì |
@@ -248,6 +262,6 @@ Chạy bộ test của `azdo.mjs` từ gốc repo (dùng glob, dạng thư mục
 node --test "plugins/pmis3-workflow/skills/azure-devops/tests/*.test.mjs"
 ```
 
-Hai biến môi trường **chỉ dành cho test**, không dùng khi làm việc thật: `AZDO_COLLECTION_URL` (trỏ tới
-máy chủ giả) và `AZDO_CREDENTIALS_FILES` (danh sách file credentials thay cho đường dẫn mặc định).
+`AZDO_COLLECTION_URL` chọn collection (PMIS Auto Work đặt biến này; test trỏ nó tới máy chủ giả).
+`AZDO_CREDENTIALS_FILES` **chỉ dành cho test** (danh sách file credentials thay cho đường dẫn mặc định).
 Đối chiếu hành vi với `azdo.ps1` trên project `KTAT` ghi ở `tests/parity-ktat.md`.
