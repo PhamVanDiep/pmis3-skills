@@ -6,7 +6,7 @@ description: 'Quy tắc BẮT BUỘC viết/sửa test cho backend PMIS3 (Spring
 # Testing (backend)
 
 Code và test là **một** thay đổi. Chức năng backend (mới hoặc sửa) CHƯA XONG khi chưa có test phủ hành vi mới
-và `./mvnw test` xanh. Phía giao diện của cùng chức năng: skill `pmis3-frontend:testing` (unit + smoke + e2e).
+và `./mvnw test` xanh. Phía giao diện của cùng chức năng: skill `pmis3-frontend:testing` (unit bắt buộc; smoke + e2e hỏi người dùng trước).
 
 ## Hai tầng
 

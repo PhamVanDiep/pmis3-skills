@@ -496,7 +496,8 @@ Mở file routes (ví dụ `he-thong.routes.ts`), thêm entry mới:
 ## Bước 10 — Viết test
 
 Làm theo skill `pmis3-frontend:testing`: lập bảng kịch bản từ SPEC, viết `{feature}.service.spec.ts`,
-tách logic nghiệp vụ (nếu có) vào `{feature}.logic.ts` kèm spec dạng bảng, rồi page object
+tách logic nghiệp vụ (nếu có) vào `{feature}.logic.ts` kèm spec dạng bảng. Smoke / e2e: người dùng chưa nói
+rõ có hay không thì HỎI trước (mục "Hỏi trước về smoke / e2e" của skill `testing`); chọn có thì thêm page object
 `e2e/pages/{module}/{feature}.page.ts` và `e2e/{module}/{feature}.spec.ts` cho các hành trình bắt buộc.
 Gắn nhãn `for`/`id` (hoặc `inputId`) cho ô nhập và `ariaLabel` cho nút chỉ có icon ngay ở Bước 7.
 
@@ -517,7 +518,7 @@ Gắn nhãn `for`/`id` (hoặc `inputId`) cho ô nhập và `ariaLabel` cho nút
 - [ ] Tất cả `p-select`/`p-dropdown`/`p-multiselect` trong dialog có `appendTo="body"`
 - [ ] `[paginatorDropdownAppendTo]="'body'"` trên `p-table`
 - [ ] Route đã được đăng ký trong file routes
-- [ ] Test theo Definition of Done của skill `pmis3-frontend:testing`; `npm test` và `npm run e2e` xanh
+- [ ] Test theo Definition of Done của skill `pmis3-frontend:testing`; `npm test` (và `npm run e2e` nếu người dùng chọn viết e2e) xanh
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: testing
-description: 'Quy tắc BẮT BUỘC viết/sửa unit test (Vitest), smoke test và e2e (Playwright, backend giả + backend thật) cho frontend PMIS3 mỗi khi xây mới HOẶC hiệu chỉnh chức năng: tầng nào test gì, bảng kịch bản, bộ khung src/testing + e2e/fixtures, testability của template, Definition of Done. Kèm danh mục kịch bản cho nghiệp vụ phức tạp: thiết bị, thí nghiệm điện, sự cố khiếm khuyết, sửa chữa bảo dưỡng, RCM, CBM. Đọc khi dựng/sửa chức năng, sửa bug, hoặc viết bất kỳ *.spec.ts nào.'
+description: 'Quy tắc BẮT BUỘC viết/sửa unit test (Vitest) cho frontend PMIS3 mỗi khi xây mới HOẶC hiệu chỉnh chức năng, và HỎI người dùng trước có viết smoke test + e2e (Playwright, backend giả + backend thật) không (đã nói rõ có/không thì theo đó): tầng nào test gì, bảng kịch bản, bộ khung src/testing + e2e/fixtures, testability của template, Definition of Done. Kèm danh mục kịch bản cho nghiệp vụ phức tạp: thiết bị, thí nghiệm điện, sự cố khiếm khuyết, sửa chữa bảo dưỡng, RCM, CBM. Đọc khi dựng/sửa chức năng, sửa bug, hoặc viết bất kỳ *.spec.ts nào.'
 ---
 
 # Testing
@@ -8,11 +8,26 @@ description: 'Quy tắc BẮT BUỘC viết/sửa unit test (Vitest), smoke test
 Mỗi chức năng giao đi kèm test của nó — code và test là **một** thay đổi. Test là bản đặc tả chạy được:
 đọc tên test là biết chức năng làm gì, test đỏ là biết hành vi nào hỏng.
 
-> **BẮT BUỘC — xây mới HOẶC hiệu chỉnh chức năng:** viết/sửa đủ **unit test + smoke test + e2e test** và chạy
-> xanh trước khi báo xong. Sửa hành vi thì sửa luôn test cũ đang mô tả hành vi đó — không xóa, không `skip`
-> cho qua. Ràng buộc nghiệp vụ (bắt buộc nhập, không trùng…) chặn ở CẢ giao diện lẫn backend, mỗi phía một
-> test. Tầng nào không chạy được (backend tắt, thiếu tài khoản) thì báo rõ tầng đó CHƯA chạy — chưa phải xong.
-> Backend: skill `pmis3-backend:testing`.
+> **BẮT BUỘC — xây mới HOẶC hiệu chỉnh chức năng:** viết/sửa **unit test** và chạy xanh trước khi báo xong.
+> **Smoke + e2e (mock / live) thì HỎI người dùng trước** — xem [Hỏi trước về smoke / e2e](#hỏi-trước-về-smoke--e2e).
+> Sửa hành vi thì sửa luôn test cũ đang mô tả hành vi đó — không xóa, không `skip` cho qua (kể cả smoke/e2e
+> cũ khi người dùng chọn không viết mới). Ràng buộc nghiệp vụ (bắt buộc nhập, không trùng…) chặn ở CẢ giao
+> diện lẫn backend, mỗi phía một test. Tầng nào không chạy được (backend tắt, thiếu tài khoản) thì báo rõ tầng
+> đó CHƯA chạy — chưa phải xong. Backend: skill `pmis3-backend:testing`.
+
+## Hỏi trước về smoke / e2e
+
+Trước khi bắt tay vào code một chức năng (mới hoặc sửa), xác định người dùng có muốn viết **smoke test và
+e2e test** (mock + live) cho lần này không:
+
+- Người dùng **đã nói rõ có** (vd "viết đủ test", "kèm e2e") → làm đủ ba tầng như các bước dưới.
+- Người dùng **đã nói rõ không** (vd "không cần e2e", "chỉ unit thôi") → bỏ bước 5, chỉ chạy `npm test`
+  (và `npm run e2e:mock` / `e2e:smoke` nếu đã có spec cũ chạm tới màn vừa sửa), KHÔNG hỏi lại.
+- Người dùng **không nhắc gì** → HỎI một câu (`AskUserQuestion` nếu có) trước khi code, kèm lựa chọn: đủ
+  smoke + e2e (mock + live) · chỉ smoke · chỉ e2e mock · không viết. Không tự quyết thay.
+
+Câu trả lời áp dụng cho chức năng đang làm trong phiên — chức năng khác thì hỏi lại. Khi báo xong, ghi rõ
+tầng nào bỏ qua **theo yêu cầu người dùng** (khác với tầng chưa chạy được vì thiếu hạ tầng).
 
 ## Stack
 
@@ -47,12 +62,13 @@ Repo khác chưa có thì chép nguyên các thư mục đó kèm `vitest.config
 3. **Service spec** — endpoint, method, tên/giá trị param, body. Mẫu: [`UNIT.md`](UNIT.md#service).
 4. **Component spec** chỉ cho logic riêng của component (ẩn/hiện theo quyền × trạng thái, validate chéo
    field, tính toán hiển thị). Mẫu: [`UNIT.md`](UNIT.md#component).
-5. **E2E + smoke** — page object của màn (`e2e/pages/<module>/`) + ba loại spec: hành trình với backend giả
+5. **E2E + smoke** (chỉ khi người dùng đồng ý — [hỏi trước](#hỏi-trước-về-smoke--e2e)) — page object của màn (`e2e/pages/<module>/`) + ba loại spec: hành trình với backend giả
    (ca khó dựng trên dữ liệu thật: lỗi backend, thiếu quyền), smoke chỉ đọc, và vòng đời nghiệp vụ chính với
    backend thật (`e2e/live/`). Mẫu: [`E2E.md`](E2E.md).
 6. **Sửa bug:** viết test tái hiện, chạy thấy **đỏ**, rồi mới sửa code cho xanh. Test ở lại vĩnh viễn.
-7. Chạy `npm test`, `npm run e2e:mock`, `npm run e2e:smoke`, `npm run e2e:live` và báo kết quả THẬT (số test,
-   xanh/đỏ, tầng nào chưa chạy được). *Xong khi:* tất cả xanh và Definition of Done bên dưới đủ dấu.
+7. Chạy `npm test` cùng các lệnh e2e của tầng đã chọn (`npm run e2e:mock`, `npm run e2e:smoke`,
+   `npm run e2e:live`) và báo kết quả THẬT (số test, xanh/đỏ, tầng nào chưa chạy được, tầng nào bỏ theo yêu
+   cầu). *Xong khi:* tất cả xanh và Definition of Done bên dưới đủ dấu.
 
 ## Tầng nào test gì
 
@@ -99,13 +115,14 @@ Test và trình đọc màn hình tìm phần tử theo cùng một cách, nên 
 - [ ] Bảng kịch bản có trong PR/work item, mỗi dòng đã có test tương ứng
 - [ ] Logic nghiệp vụ nằm trong hàm thuần, có unit test dạng bảng phủ mọi biên
 - [ ] Service có spec cho mọi method mới/sửa
-- [ ] Mỗi màn mới có page object + e2e: luồng chính, validate, lỗi backend, ít nhất một ca thiếu quyền
-- [ ] Smoke chỉ đọc cho màn (`e2e/smoke/<module>.spec.ts`) và e2e vòng đời với backend thật (`e2e/live/`)
+- [ ] Đã hỏi (hoặc người dùng đã nói rõ) có viết smoke / e2e không — ghi lựa chọn vào PR
+- [ ] *(nếu chọn e2e)* Mỗi màn mới có page object + e2e: luồng chính, validate, lỗi backend, ít nhất một ca thiếu quyền
+- [ ] *(nếu chọn smoke / live)* Smoke chỉ đọc cho màn (`e2e/smoke/<module>.spec.ts`) và e2e vòng đời với backend thật (`e2e/live/`)
 - [ ] Hiệu chỉnh chức năng: test cũ của hành vi bị đổi đã sửa theo, test mới cho hành vi mới
 - [ ] Ràng buộc nghiệp vụ mới có test ở cả giao diện (nút khóa / dấu `*`) lẫn backend (400, `pmis3-backend:testing`)
 - [ ] Bug đã sửa có test tái hiện
 - [ ] Template đạt quy tắc Testability
-- [ ] `npm test`, `npm run e2e:mock`, `npm run e2e:smoke`, `npm run e2e:live` xanh — kết quả ghi vào PR
+- [ ] `npm test` + lệnh e2e của các tầng đã chọn xanh — kết quả ghi vào PR
 - [ ] `npm run lint` 0 error; code mới không thêm cảnh báo (`no-explicit-any`, `prefer-inject`, a11y template)
 
 ## Tham chiếu
