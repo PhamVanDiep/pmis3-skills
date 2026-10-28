@@ -1,7 +1,7 @@
 {
   "name": "pmis3-workflow",
-  "version": "1.7.0",
-  "description": "Quy trình làm việc dùng chung cho cả FE lẫn BE: work item Azure DevOps on-prem, sinh tài liệu BA, dựng chức năng từ bản thiết kế Claude Design. Kèm cơ chế tự kiểm tra cập nhật bộ skill.",
+  "version": "1.8.0",
+  "description": "Quy trình làm việc dùng chung cho cả FE lẫn BE: work item Azure DevOps on-prem, sinh tài liệu BA, dựng chức năng từ bản thiết kế Claude Design, rà soát an toàn thông tin mã nguồn. Kèm cơ chế tự kiểm tra cập nhật bộ skill.",
   "author": {
     "name": "PMIS3 Team - EVNICT"
   },
