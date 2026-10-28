@@ -83,11 +83,18 @@ Command: `/fe-spec`.
 Checkstyle chạy ở `verify` và CI), `testing` (BẮT BUỘC khi xây mới/hiệu chỉnh: unit test
 JUnit + Mockito, ràng buộc trả 400 thay vì 500, Definition of Done).
 
-### `pmis3-workflow` — 6 skill
+### `pmis3-workflow` — 8 skill
 
 `azure-devops` (đọc/cập nhật work item Azure DevOps on-prem EVN, xác thực bằng PAT scope Work Items),
 `ado-done` (chốt work item: Bug → Committed, Ticket/Item → Done hoặc state chỉ định, kèm comment tổng kết
-và bù field bắt buộc), `feature-doc`, `feature-doc-update`, `design-to-feature`, `design-to-feature-sxd`.
+và bù field bắt buộc), `feature-doc`, `feature-doc-update`, `confluence-doc` (viết tài liệu thiết kế chức năng
+lên Confluence EVN từ mã nguồn / file `.md` / mô tả nghiệp vụ, chia thành chức năng con, kèm sơ đồ Mermaid
+và bảng validator — cần MCP Confluence EVN đã kết nối và có quyền
+ghi, xem [hướng dẫn](https://docs.evn.com.vn/pages/viewpage.action?pageId=171477813)), `docs-to-ado` (đọc
+tài liệu Confluence / `.md` rồi tạo work item loại do người dùng chọn — bắt buộc grilling bóc tách yêu cầu và
+duyệt bản đề xuất trước khi tạo; grilling dùng skill `grilling` của plugin `mattpocock-skills` nếu có cài),
+`design-to-feature`,
+`design-to-feature-sxd`.
 
 ## Gọi skill
 
