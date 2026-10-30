@@ -31,6 +31,24 @@ Khởi động lại Claude Code sau khi cài.
 > Không cài plugin không dùng tới: mô tả của **mọi** skill đều được nạp vào context ở mọi phiên,
 > nên dev backend cài thêm `pmis3-frontend` là trả giá context cho 18 skill Angular không bao giờ dùng.
 
+### Codex và Cursor
+
+Cần `git` và Node ≥ 18. Lệnh này giống nhau trên Windows (PowerShell), macOS và Linux:
+
+```
+git clone https://github.com/PhamVanDiep/pmis3-skills.git "$HOME/pmis3-skills"
+node "$HOME/pmis3-skills/scripts/sync-agent-skills.mjs" --install-schedule
+```
+
+Script cài skill vào `~/.agents/skills` (cả Codex lẫn Cursor đều đọc thư mục này, mọi repo trên máy dùng
+chung) rồi đặt lịch tự `git pull` và đồng bộ lại: Task Scheduler trên Windows, cron trên macOS/Linux. Chỉ cài
+một phần thì thêm `--plugins pmis3-backend,pmis3-workflow`. Muốn cập nhật ngay thì chạy lại script không kèm
+cờ; muốn gỡ lịch thì dùng `--remove-schedule`.
+
+Hai skill `testing` được đổi tên thành `pmis3-frontend-testing` và `pmis3-backend-testing` để không trùng.
+Command `/fe-spec` và hook báo cập nhật chỉ có trên Claude Code. Một số skill vẫn phụ thuộc công cụ của
+Claude Code (`design-to-feature`, `design-to-feature-sxd`) hoặc cần cấu hình MCP riêng (`confluence-doc`).
+
 ## Cập nhật
 
 **Claude Code KHÔNG tự cập nhật marketplace bên thứ ba.** Đây là hành vi đã đo được, không phải suy đoán:
